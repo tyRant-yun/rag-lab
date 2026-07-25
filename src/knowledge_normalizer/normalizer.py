@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -15,9 +15,6 @@ from knowledge_normalizer.models import (
 
 
 _CJK = "\u3400-\u4dbf\u4e00-\u9fff"
-_TERMINAL_PUNCTUATION = frozenset(
-    "。！？；.!?;"
-)
 _NUMBERED_HEADING = re.compile(
     r"^(?P<number>\d+(?:\.\d+)+)"
     r"(?:\s+|(?=[^\d.]))"
@@ -171,10 +168,6 @@ def normalize_docling_document(
         )
     )
 
-    merged_candidates, merged_count = (
-        _merge_cross_page_paragraphs(candidates)
-    )
-
     normalized_blocks = tuple(
         NormalizedBlock(
             block_id=_compute_block_id(
@@ -203,7 +196,7 @@ def normalize_docling_document(
             ),
         )
         for index, candidate in enumerate(
-            merged_candidates,
+            candidates,
             start=1,
         )
     )
@@ -260,7 +253,6 @@ def normalize_docling_document(
         reordered_block_count=(
             reordered_block_count
         ),
-        merged_cross_page_count=merged_count,
         downgraded_heading_count=(
             downgraded_heading_count
         ),
@@ -693,75 +685,6 @@ def _map_block_type(
     return mapping.get(
         label,
         BlockType.PARAGRAPH,
-    )
-
-
-def _merge_cross_page_paragraphs(
-    candidates: list[_CandidateBlock],
-) -> tuple[list[_CandidateBlock], int]:
-    merged: list[_CandidateBlock] = []
-    merged_count = 0
-
-    for candidate in candidates:
-        if (
-            merged
-            and _can_merge_cross_page(
-                merged[-1],
-                candidate,
-            )
-        ):
-            previous = merged[-1]
-            merged[-1] = replace(
-                previous,
-                text=_join_text(
-                    previous.text,
-                    candidate.text,
-                ),
-                page_end=candidate.page_end,
-            )
-            merged_count += 1
-            continue
-
-        merged.append(candidate)
-
-    return merged, merged_count
-
-
-def _can_merge_cross_page(
-    previous: _CandidateBlock,
-    current: _CandidateBlock,
-) -> bool:
-    return (
-        previous.block_type
-        == BlockType.PARAGRAPH
-        and current.block_type
-        == BlockType.PARAGRAPH
-        and previous.page_end + 1
-        == current.page_start
-        and previous.heading_path
-        == current.heading_path
-        and previous.text[-1]
-        not in _TERMINAL_PUNCTUATION
-    )
-
-
-def _join_text(
-    previous: str,
-    current: str,
-) -> str:
-    if (
-        _is_cjk(previous[-1])
-        or _is_cjk(current[0])
-    ):
-        return previous + current
-
-    return f"{previous} {current}"
-
-
-def _is_cjk(character: str) -> bool:
-    return (
-        "\u3400" <= character <= "\u4dbf"
-        or "\u4e00" <= character <= "\u9fff"
     )
 
 

@@ -37,6 +37,8 @@ ordinal, type, and page range.
 
 The Chunker must not read Docling JSON or depend on the review Markdown
 format. Neither Chunker nor Retriever is implemented in this package.
+The Normalizer deliberately leaves adjacent and cross-page blocks
+separate for the Chunker.
 
 ## Usage
 

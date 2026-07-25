@@ -259,7 +259,7 @@ def test_normalizer_restores_order_and_contract(
     )
 
 
-def test_cross_page_paragraphs_are_merged(
+def test_cross_page_paragraphs_remain_separate(
     tmp_path: Path,
 ):
     source = tmp_path / "source.pdf"
@@ -278,19 +278,22 @@ def test_cross_page_paragraphs_are_merged(
         normalization_version="1.0.0",
     )
 
-    merged = next(
+    first = next(
         block
         for block in result.blocks
-        if block.text
-        == "第一段未结束继续到下一页。"
+        if block.text == "第一段未结束"
+    )
+    continuation = next(
+        block
+        for block in result.blocks
+        if block.text == "继续到下一页。"
     )
 
-    assert merged.page_start == 19
-    assert merged.page_end == 20
-    assert (
-        result.report.merged_cross_page_count
-        == 1
-    )
+    assert first.page_start == 19
+    assert first.page_end == 19
+    assert continuation.page_start == 20
+    assert continuation.page_end == 20
+    assert continuation.ordinal == first.ordinal + 1
 
 
 def test_outputs_are_deterministic(

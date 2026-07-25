@@ -122,7 +122,6 @@ class NormalizationReport:
     normalized_block_count: int
     removed_furniture_count: int
     reordered_block_count: int
-    merged_cross_page_count: int
     downgraded_heading_count: int
     short_fragment_ratio: float
     pages_requiring_review: tuple[int, ...]
@@ -144,9 +143,6 @@ class NormalizationReport:
             ),
             "reordered_block_count": (
                 self.reordered_block_count
-            ),
-            "merged_cross_page_count": (
-                self.merged_cross_page_count
             ),
             "downgraded_heading_count": (
                 self.downgraded_heading_count
