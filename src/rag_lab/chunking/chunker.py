@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from rag_lab.chunking.models import ChunkingConfig
 from rag_lab.contracts import (
     BlockType,
     NormalizedBlock,
@@ -67,6 +68,14 @@ class _ContentUnit:
 
     text: str
     blocks: tuple[NormalizedBlock, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class _ChunkDraft:
+    """Content units waiting to become a KnowledgeChunk."""
+
+    heading_path: tuple[str, ...]
+    units: tuple[_ContentUnit, ...]
 
 
 def _is_control_block(
@@ -325,3 +334,80 @@ def _merge_cross_page_paragraphs(
         )
 
     return tuple(units), join_count
+
+
+def _render_draft_content(
+    draft: _ChunkDraft,
+) -> str:
+    """Render body text while preserving unit boundaries."""
+
+    return "\n\n".join(
+        unit.text
+        for unit in draft.units
+    )
+
+
+def _render_draft_index_text(
+    draft: _ChunkDraft,
+) -> str:
+    """Render the exact text used for size and retrieval."""
+
+    heading_text = "\n".join(
+        draft.heading_path
+    )
+    content = _render_draft_content(draft)
+
+    if not content:
+        return heading_text
+
+    return f"{heading_text}\n\n{content}"
+
+
+def _pack_content_units(
+    *,
+    heading_path: tuple[str, ...],
+    units: Sequence[_ContentUnit],
+    config: ChunkingConfig,
+) -> tuple[_ChunkDraft, ...]:
+    """Greedily pack ordered units under max_chars."""
+
+    drafts: list[_ChunkDraft] = []
+    current_units: list[_ContentUnit] = []
+
+    for unit in units:
+        candidate = _ChunkDraft(
+            heading_path=heading_path,
+            units=tuple(
+                current_units + [unit]
+            ),
+        )
+
+        if (
+            current_units
+            and len(
+                _render_draft_index_text(
+                    candidate
+                )
+            )
+            > config.max_chars
+        ):
+            drafts.append(
+                _ChunkDraft(
+                    heading_path=heading_path,
+                    units=tuple(current_units),
+                )
+            )
+            current_units = [unit]
+            continue
+
+        current_units.append(unit)
+
+    if current_units:
+        drafts.append(
+            _ChunkDraft(
+                heading_path=heading_path,
+                units=tuple(current_units),
+            )
+        )
+
+    return tuple(drafts)

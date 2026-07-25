@@ -1,9 +1,12 @@
 import pytest
 
+from rag_lab.chunking import ChunkingConfig
 from rag_lab.chunking.chunker import (
     _BODY_BLOCK_TYPES,
     _CONTROL_BLOCK_TYPES,
     _CandidateGroup,
+    _ChunkDraft,
+    _ContentUnit,
     _ends_complete_sentence,
     _group_body_blocks,
     _is_body_block,
@@ -11,6 +14,9 @@ from rag_lab.chunking.chunker import (
     _is_cross_page_paragraph_continuation,
     _join_continuation_text,
     _merge_cross_page_paragraphs,
+    _pack_content_units,
+    _render_draft_content,
+    _render_draft_index_text,
     _validate_and_sort_blocks,
 )
 from rag_lab.contracts import (
@@ -51,6 +57,20 @@ def build_block(
     }
     values.update(overrides)
     return NormalizedBlock(**values)
+
+def build_unit(
+    text: str,
+    ordinal: int,
+) -> _ContentUnit:
+    block = build_block(
+        ordinal=ordinal,
+        text=text,
+    )
+
+    return _ContentUnit(
+        text=text,
+        blocks=(block,),
+    )
 
 
 def test_blocks_are_sorted_without_mutating_input():
@@ -541,3 +561,143 @@ def test_three_page_continuation_forms_one_unit():
         second,
         third,
     )
+
+
+def test_draft_rendering_includes_heading_context():
+    draft = _ChunkDraft(
+        heading_path=(
+            "第1章",
+            "1.1 因特网",
+        ),
+        units=(
+            build_unit("第一段", 1),
+            build_unit("第二段", 2),
+        ),
+    )
+
+    assert _render_draft_content(draft) == (
+        "第一段\n\n第二段"
+    )
+    assert _render_draft_index_text(draft) == (
+        "第1章\n"
+        "1.1 因特网\n\n"
+        "第一段\n\n"
+        "第二段"
+    )
+
+
+def test_units_that_fit_share_one_draft():
+    units = (
+        build_unit("A" * 40, 1),
+        build_unit("B" * 40, 2),
+    )
+
+    drafts = _pack_content_units(
+        heading_path=("章节",),
+        units=units,
+        config=ChunkingConfig(
+            max_chars=100
+        ),
+    )
+
+    assert len(drafts) == 1
+    assert drafts[0].units == units
+    assert len(
+        _render_draft_index_text(drafts[0])
+    ) <= 100
+
+
+def test_overflow_starts_new_draft():
+    units = (
+        build_unit("A" * 60, 1),
+        build_unit("B" * 60, 2),
+    )
+
+    drafts = _pack_content_units(
+        heading_path=("章节",),
+        units=units,
+        config=ChunkingConfig(
+            max_chars=100
+        ),
+    )
+
+    assert len(drafts) == 2
+    assert drafts[0].units == (units[0],)
+    assert drafts[1].units == (units[1],)
+
+
+def test_exact_limit_is_allowed():
+    draft = _ChunkDraft(
+        heading_path=("章节",),
+        units=(
+            build_unit("A" * 96, 1),
+        ),
+    )
+
+    assert len(
+        _render_draft_index_text(draft)
+    ) == 100
+
+    drafts = _pack_content_units(
+        heading_path=draft.heading_path,
+        units=draft.units,
+        config=ChunkingConfig(
+            max_chars=100
+        ),
+    )
+
+    assert len(drafts) == 1
+
+
+def test_single_oversized_unit_is_preserved():
+    unit = build_unit("A" * 120, 1)
+
+    drafts = _pack_content_units(
+        heading_path=("章节",),
+        units=(unit,),
+        config=ChunkingConfig(
+            max_chars=100
+        ),
+    )
+
+    assert len(drafts) == 1
+    assert drafts[0].units == (unit,)
+    assert len(
+        _render_draft_index_text(drafts[0])
+    ) > 100
+
+
+def test_empty_units_produce_no_drafts():
+    drafts = _pack_content_units(
+        heading_path=("章节",),
+        units=(),
+        config=ChunkingConfig(
+            max_chars=100
+        ),
+    )
+
+    assert drafts == ()
+
+
+def test_packing_preserves_unit_order():
+    units = (
+        build_unit("A" * 60, 1),
+        build_unit("B" * 60, 2),
+        build_unit("C" * 20, 3),
+    )
+
+    drafts = _pack_content_units(
+        heading_path=("章节",),
+        units=units,
+        config=ChunkingConfig(
+            max_chars=100
+        ),
+    )
+
+    packed_ordinals = [
+        unit.blocks[0].ordinal
+        for draft in drafts
+        for unit in draft.units
+    ]
+
+    assert packed_ordinals == [1, 2, 3]
