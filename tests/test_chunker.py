@@ -1,6 +1,11 @@
+import hashlib
+
 import pytest
 
-from rag_lab.chunking import ChunkingConfig
+from rag_lab.chunking import (
+    ChunkingConfig,
+    chunk_normalized_blocks,
+)
 from rag_lab.chunking.chunker import (
     _ATOMIC_BODY_TYPES,
     _BODY_BLOCK_TYPES,
@@ -9,6 +14,7 @@ from rag_lab.chunking.chunker import (
     _CandidateGroup,
     _ChunkDraft,
     _ContentUnit,
+    _draft_to_knowledge_chunk,
     _ends_complete_sentence,
     _group_body_blocks,
     _is_body_block,
@@ -17,13 +23,13 @@ from rag_lab.chunking.chunker import (
     _join_continuation_text,
     _merge_cross_page_paragraphs,
     _pack_content_units,
+    _prepare_chunk_drafts,
     _prepare_oversized_units,
     _render_draft_content,
     _render_draft_index_text,
     _sentence_boundary_positions,
     _split_text_to_budget,
     _validate_and_sort_blocks,
-    _prepare_chunk_drafts,
 )
 from rag_lab.contracts import (
     BlockType,
@@ -978,3 +984,203 @@ def test_normal_pipeline_respects_max_chars():
             result.drafts[0]
         )
     ) <= 100
+
+def test_draft_converts_to_knowledge_chunk():
+    first = build_block(
+        ordinal=1,
+        text="第一段",
+        page_start=19,
+        page_end=19,
+    )
+    second = build_block(
+        ordinal=2,
+        text="第二段",
+        page_start=20,
+        page_end=20,
+    )
+
+    draft = _ChunkDraft(
+        heading_path=tuple(
+            first.heading_path
+        ),
+        units=(
+            _ContentUnit(
+                text=first.text,
+                blocks=(first,),
+            ),
+            _ContentUnit(
+                text=second.text,
+                blocks=(second,),
+            ),
+        ),
+    )
+
+    chunk = _draft_to_knowledge_chunk(
+        draft=draft,
+        ordinal=1,
+        config=ChunkingConfig(),
+    )
+
+    expected_content = "第一段\n\n第二段"
+    expected_hash = (
+        "sha256:"
+        + hashlib.sha256(
+            expected_content.encode("utf-8")
+        ).hexdigest()
+    )
+
+    assert chunk.content == expected_content
+    assert chunk.index_text.endswith(
+        expected_content
+    )
+    assert chunk.page_start == 19
+    assert chunk.page_end == 20
+    assert chunk.ordinal == 1
+    assert chunk.block_ids == [
+        first.block_id,
+        second.block_id,
+    ]
+    assert chunk.content_hash == expected_hash
+
+
+def test_chunk_id_does_not_depend_on_ordinal():
+    unit = build_unit("正文", 1)
+    draft = _ChunkDraft(
+        heading_path=("章节",),
+        units=(unit,),
+    )
+
+    first = _draft_to_knowledge_chunk(
+        draft=draft,
+        ordinal=1,
+        config=ChunkingConfig(),
+    )
+    later = _draft_to_knowledge_chunk(
+        draft=draft,
+        ordinal=99,
+        config=ChunkingConfig(),
+    )
+
+    assert first.chunk_id == later.chunk_id
+    assert first.ordinal == 1
+    assert later.ordinal == 99
+
+
+def test_content_change_changes_chunk_id():
+    block = build_block(
+        ordinal=1,
+        text="原始正文",
+    )
+
+    original = _ChunkDraft(
+        heading_path=("章节",),
+        units=(
+            _ContentUnit(
+                text="原始正文",
+                blocks=(block,),
+            ),
+        ),
+    )
+    changed = _ChunkDraft(
+        heading_path=("章节",),
+        units=(
+            _ContentUnit(
+                text="修改后的正文",
+                blocks=(block,),
+            ),
+        ),
+    )
+
+    original_chunk = _draft_to_knowledge_chunk(
+        draft=original,
+        ordinal=1,
+        config=ChunkingConfig(),
+    )
+    changed_chunk = _draft_to_knowledge_chunk(
+        draft=changed,
+        ordinal=1,
+        config=ChunkingConfig(),
+    )
+
+    assert (
+        original_chunk.content_hash
+        != changed_chunk.content_hash
+    )
+    assert (
+        original_chunk.chunk_id
+        != changed_chunk.chunk_id
+    )
+
+
+def test_public_chunker_returns_result_and_report():
+    blocks = [
+        build_block(
+            ordinal=1,
+            text="A" * 40,
+        ),
+        build_block(
+            ordinal=2,
+            text="B" * 40,
+        ),
+    ]
+
+    result = chunk_normalized_blocks(
+        blocks=blocks,
+        config=ChunkingConfig(
+            max_chars=100
+        ),
+    )
+
+    assert len(result.chunks) == 1
+    assert result.chunks[0].ordinal == 1
+    assert result.report.document_id == (
+        "sha256:document"
+    )
+    assert result.report.input_block_count == 2
+    assert result.report.output_chunk_count == 1
+
+
+def test_inserting_earlier_group_keeps_later_id():
+    earlier = build_block(
+        ordinal=1,
+        text="较早正文",
+        heading_path=["第一节"],
+    )
+    later = build_block(
+        ordinal=2,
+        text="较晚正文",
+        heading_path=["第二节"],
+    )
+
+    later_only = chunk_normalized_blocks(
+        blocks=[later]
+    )
+    complete = chunk_normalized_blocks(
+        blocks=[earlier, later]
+    )
+
+    assert (
+        later_only.chunks[0].chunk_id
+        == complete.chunks[1].chunk_id
+    )
+    assert later_only.chunks[0].ordinal == 1
+    assert complete.chunks[1].ordinal == 2
+
+
+def test_control_only_document_returns_empty_chunks():
+    title = build_block(
+        ordinal=1,
+        text="计算机网络",
+        block_type=(
+            BlockType.DOCUMENT_TITLE.value
+        ),
+        heading_path=["计算机网络"],
+    )
+
+    result = chunk_normalized_blocks(
+        blocks=[title]
+    )
+
+    assert result.chunks == []
+    assert result.report.input_block_count == 1
+    assert result.report.output_chunk_count == 0

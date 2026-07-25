@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from rag_lab.chunking.models import ChunkingConfig
+from rag_lab.chunking.models import (
+    ChunkingConfig,
+    ChunkingReport,
+    ChunkingResult,
+)
+
 from rag_lab.contracts import (
     BlockType,
+    KnowledgeChunk,
     NormalizedBlock,
 )
 
@@ -699,4 +707,212 @@ def _prepare_chunk_drafts(
         oversized_atomic_block_count=(
             oversized_atomic_block_count
         ),
+    )
+
+def _hash_text(text: str) -> str:
+    """Return a versioned SHA-256 text hash."""
+
+    digest = hashlib.sha256(
+        text.encode("utf-8")
+    ).hexdigest()
+
+    return f"sha256:{digest}"
+
+def _ordered_draft_blocks(
+    draft: _ChunkDraft,
+) -> tuple[NormalizedBlock, ...]:
+    """Return source blocks in first-appearance order."""
+
+    ordered_blocks: list[NormalizedBlock] = []
+    seen_block_ids: set[str] = set()
+
+    for unit in draft.units:
+        for block in unit.blocks:
+            if block.block_id in seen_block_ids:
+                continue
+
+            seen_block_ids.add(block.block_id)
+            ordered_blocks.append(block)
+
+    if not ordered_blocks:
+        raise ValueError(
+            "chunk draft must contain source blocks"
+        )
+
+    return tuple(ordered_blocks)
+
+def _build_chunk_id(
+    *,
+    document_id: str,
+    heading_path: tuple[str, ...],
+    block_ids: tuple[str, ...],
+    content_hash: str,
+    chunking_version: str,
+) -> str:
+    """Build a deterministic provenance-aware chunk ID."""
+
+    identity = {
+        "document_id": document_id,
+        "heading_path": list(heading_path),
+        "block_ids": list(block_ids),
+        "content_hash": content_hash,
+        "chunking_version": chunking_version,
+    }
+
+    canonical_identity = json.dumps(
+        identity,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+    return _hash_text(canonical_identity)
+
+def _draft_to_knowledge_chunk(
+    *,
+    draft: _ChunkDraft,
+    ordinal: int,
+    config: ChunkingConfig,
+) -> KnowledgeChunk:
+    """Convert one internal draft to the public contract."""
+
+    source_blocks = _ordered_draft_blocks(
+        draft
+    )
+
+    document_ids = {
+        block.document_id
+        for block in source_blocks
+    }
+    source_paths = {
+        block.source_path
+        for block in source_blocks
+    }
+    normalization_versions = {
+        block.normalization_version
+        for block in source_blocks
+    }
+
+    if len(document_ids) != 1:
+        raise ValueError(
+            "chunk draft must have one document_id"
+        )
+
+    if len(source_paths) != 1:
+        raise ValueError(
+            "chunk draft must have one source_path"
+        )
+
+    if len(normalization_versions) != 1:
+        raise ValueError(
+            "chunk draft must have one "
+            "normalization_version"
+        )
+
+    document_id = next(iter(document_ids))
+    source_path = next(iter(source_paths))
+    normalization_version = next(
+        iter(normalization_versions)
+    )
+
+    content = _render_draft_content(draft)
+    index_text = _render_draft_index_text(
+        draft
+    )
+    content_hash = _hash_text(content)
+
+    block_ids = tuple(
+        block.block_id
+        for block in source_blocks
+    )
+
+    chunk_id = _build_chunk_id(
+        document_id=document_id,
+        heading_path=draft.heading_path,
+        block_ids=block_ids,
+        content_hash=content_hash,
+        chunking_version=(
+            config.chunking_version
+        ),
+    )
+
+    return KnowledgeChunk(
+        chunk_id=chunk_id,
+        document_id=document_id,
+        content=content,
+        index_text=index_text,
+        heading_path=list(
+            draft.heading_path
+        ),
+        page_start=min(
+            block.page_start
+            for block in source_blocks
+        ),
+        page_end=max(
+            block.page_end
+            for block in source_blocks
+        ),
+        ordinal=ordinal,
+        block_ids=list(block_ids),
+        source_path=source_path,
+        content_hash=content_hash,
+        normalization_version=(
+            normalization_version
+        ),
+        chunking_version=(
+            config.chunking_version
+        ),
+    )
+
+def chunk_normalized_blocks(
+    *,
+    blocks: Sequence[NormalizedBlock],
+    config: ChunkingConfig | None = None,
+) -> ChunkingResult:
+    """Convert normalized blocks into knowledge chunks."""
+
+    resolved_config = (
+        config
+        if config is not None
+        else ChunkingConfig()
+    )
+
+    preparation = _prepare_chunk_drafts(
+        blocks=blocks,
+        config=resolved_config,
+    )
+
+    # preparation 成功意味着输入非空且属于同一文档。
+    document_id = blocks[0].document_id
+
+    chunks = [
+        _draft_to_knowledge_chunk(
+            draft=draft,
+            ordinal=ordinal,
+            config=resolved_config,
+        )
+        for ordinal, draft in enumerate(
+            preparation.drafts,
+            start=1,
+        )
+    ]
+
+    report = ChunkingReport(
+        document_id=document_id,
+        input_block_count=len(blocks),
+        output_chunk_count=len(chunks),
+        cross_page_join_count=(
+            preparation.cross_page_join_count
+        ),
+        long_block_split_count=(
+            preparation.long_block_split_count
+        ),
+        oversized_atomic_block_count=(
+            preparation.oversized_atomic_block_count
+        ),
+    )
+
+    return ChunkingResult(
+        chunks=chunks,
+        report=report,
     )
