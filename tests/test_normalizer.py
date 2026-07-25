@@ -2,6 +2,8 @@ import json
 from copy import deepcopy
 from pathlib import Path
 
+import pytest
+
 from rag_lab.contracts.blocks import (
     BlockType,
 )
@@ -393,6 +395,16 @@ def test_caption_receives_relative_image_path(
     )
 
     output = tmp_path / "normalized"
+
+    with pytest.raises(
+        FileNotFoundError,
+        match="asset_source_directory",
+    ):
+        write_normalization_outputs(
+            result=result,
+            output_directory=output,
+        )
+
     write_normalization_outputs(
         result=result,
         output_directory=output,
@@ -411,6 +423,13 @@ def test_caption_receives_relative_image_path(
     assert (
         output / "assets" / "figure.png"
     ).read_bytes() == b"png"
+
+    # A direct API caller may omit the source only when the
+    # referenced assets are already present in the bundle.
+    write_normalization_outputs(
+        result=result,
+        output_directory=output,
+    )
 
 
 def test_multiple_chapters_reset_heading_path(

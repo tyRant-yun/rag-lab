@@ -24,7 +24,12 @@ def write_normalization_outputs(
         exist_ok=True,
     )
 
-    if asset_source_directory is not None:
+    if asset_source_directory is None:
+        _validate_referenced_images(
+            blocks=result.blocks,
+            output_directory=output_directory,
+        )
+    else:
         _copy_referenced_images(
             blocks=result.blocks,
             source_directory=(
@@ -46,6 +51,40 @@ def write_normalization_outputs(
         output_directory
         / "normalization-report.json",
     )
+
+
+def _validate_referenced_images(
+    *,
+    blocks: tuple[NormalizedBlock, ...],
+    output_directory: Path,
+) -> None:
+    output_root = output_directory.resolve()
+    relative_paths = {
+        block.image_path
+        for block in blocks
+        if block.image_path
+    }
+
+    for image_path in sorted(relative_paths):
+        target = (
+            output_root / image_path
+        ).resolve()
+
+        try:
+            target.relative_to(output_root)
+        except ValueError as error:
+            raise ValueError(
+                "image_path escapes the output "
+                "directory"
+            ) from error
+
+        if not target.is_file():
+            raise FileNotFoundError(
+                "asset_source_directory is required "
+                "when a referenced image is not "
+                f"already in the output directory: "
+                f"{target}"
+            )
 
 
 def _copy_referenced_images(
