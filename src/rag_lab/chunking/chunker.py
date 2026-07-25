@@ -100,6 +100,7 @@ class _ChunkDraft:
 
     heading_path: tuple[str, ...]
     units: tuple[_ContentUnit, ...]
+    overlap_unit_count: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +120,8 @@ class _DraftPreparationResult:
     cross_page_join_count: int
     long_block_split_count: int
     oversized_atomic_block_count: int
+    overlapped_chunk_count: int
+    overlap_char_count: int
 
 
 def _is_control_block(
@@ -406,6 +409,153 @@ def _render_draft_index_text(
     return f"{heading_text}\n\n{content}"
 
 
+def _render_units_text(
+    units: Sequence[_ContentUnit],
+) -> str:
+    """Render content units without heading context."""
+
+    return "\n\n".join(
+        unit.text
+        for unit in units
+    )
+
+
+def _complete_sentence_suffix(
+    unit: _ContentUnit,
+    max_chars: int,
+) -> _ContentUnit | None:
+    """Return the longest complete-sentence suffix that fits."""
+
+    if max_chars < 1:
+        return None
+
+    block_types = {
+        block.block_type
+        for block in unit.blocks
+    }
+
+    if not block_types.issubset(
+        _SPLITTABLE_BODY_TYPES
+    ):
+        return None
+
+    text = unit.text.strip()
+    boundaries = _sentence_boundary_positions(text)
+
+    if not boundaries or boundaries[-1] != len(text):
+        return None
+
+    sentence_starts = (0,) + boundaries[:-1]
+
+    for start in sentence_starts:
+        suffix = text[start:].strip()
+
+        if suffix and len(suffix) <= max_chars:
+            return _ContentUnit(
+                text=suffix,
+                blocks=unit.blocks,
+            )
+
+    return None
+
+
+def _select_overlap_units(
+    *,
+    heading_path: tuple[str, ...],
+    source_units: Sequence[_ContentUnit],
+    next_unit: _ContentUnit,
+    config: ChunkingConfig,
+) -> tuple[_ContentUnit, ...]:
+    """Select a provenance-preserving suffix for the next draft."""
+
+    if config.overlap_chars == 0 or not source_units:
+        return ()
+
+    next_draft = _ChunkDraft(
+        heading_path=heading_path,
+        units=(next_unit,),
+    )
+    next_length = len(
+        _render_draft_index_text(next_draft)
+    )
+
+    if next_length > config.max_chars:
+        return ()
+
+    available_chars = min(
+        config.overlap_chars,
+        config.max_chars - next_length - 2,
+    )
+
+    if available_chars < 1:
+        return ()
+
+    selected: list[_ContentUnit] = []
+
+    for unit in reversed(source_units):
+        candidate = [unit, *selected]
+
+        if len(
+            _render_units_text(candidate)
+        ) <= available_chars:
+            selected.insert(0, unit)
+            continue
+
+        separator_chars = 2 if selected else 0
+        suffix_budget = (
+            available_chars
+            - len(_render_units_text(selected))
+            - separator_chars
+        )
+        suffix = _complete_sentence_suffix(
+            unit,
+            suffix_budget,
+        )
+
+        if suffix is not None:
+            selected.insert(0, suffix)
+
+        break
+
+    overlap = tuple(selected)
+
+    if not overlap:
+        return ()
+
+    candidate_draft = _ChunkDraft(
+        heading_path=heading_path,
+        units=overlap + (next_unit,),
+        overlap_unit_count=len(overlap),
+    )
+
+    if (
+        len(_render_draft_index_text(candidate_draft))
+        > config.max_chars
+    ):
+        raise AssertionError(
+            "selected overlap exceeds max_chars"
+        )
+
+    return overlap
+
+
+def _draft_overlap_char_count(
+    draft: _ChunkDraft,
+) -> int:
+    """Return repeated content characters in one draft."""
+
+    if draft.overlap_unit_count == 0:
+        return 0
+
+    return len(
+        _render_units_text(
+            draft.units[
+                :draft.overlap_unit_count
+            ]
+        )
+    )
+
+
 def _pack_content_units(
     *,
     heading_path: tuple[str, ...],
@@ -416,6 +566,7 @@ def _pack_content_units(
 
     drafts: list[_ChunkDraft] = []
     current_units: list[_ContentUnit] = []
+    current_overlap_unit_count = 0
 
     for unit in units:
         candidate = _ChunkDraft(
@@ -438,9 +589,28 @@ def _pack_content_units(
                 _ChunkDraft(
                     heading_path=heading_path,
                     units=tuple(current_units),
+                    overlap_unit_count=(
+                        current_overlap_unit_count
+                    ),
                 )
             )
-            current_units = [unit]
+
+            primary_units = current_units[
+                current_overlap_unit_count:
+            ]
+            overlap_units = _select_overlap_units(
+                heading_path=heading_path,
+                source_units=primary_units,
+                next_unit=unit,
+                config=config,
+            )
+            current_units = [
+                *overlap_units,
+                unit,
+            ]
+            current_overlap_unit_count = len(
+                overlap_units
+            )
             continue
 
         current_units.append(unit)
@@ -450,6 +620,9 @@ def _pack_content_units(
             _ChunkDraft(
                 heading_path=heading_path,
                 units=tuple(current_units),
+                overlap_unit_count=(
+                    current_overlap_unit_count
+                ),
             )
         )
 
@@ -664,6 +837,8 @@ def _prepare_chunk_drafts(
     cross_page_join_count = 0
     long_block_split_count = 0
     oversized_atomic_block_count = 0
+    overlapped_chunk_count = 0
+    overlap_char_count = 0
 
     for group in groups:
         merged_units, group_join_count = (
@@ -685,6 +860,14 @@ def _prepare_chunk_drafts(
         )
 
         drafts.extend(group_drafts)
+        overlapped_chunk_count += sum(
+            draft.overlap_unit_count > 0
+            for draft in group_drafts
+        )
+        overlap_char_count += sum(
+            _draft_overlap_char_count(draft)
+            for draft in group_drafts
+        )
 
         cross_page_join_count += (
             group_join_count
@@ -707,6 +890,10 @@ def _prepare_chunk_drafts(
         oversized_atomic_block_count=(
             oversized_atomic_block_count
         ),
+        overlapped_chunk_count=(
+            overlapped_chunk_count
+        ),
+        overlap_char_count=overlap_char_count,
     )
 
 def _hash_text(text: str) -> str:
@@ -909,6 +1096,12 @@ def chunk_normalized_blocks(
         ),
         oversized_atomic_block_count=(
             preparation.oversized_atomic_block_count
+        ),
+        overlapped_chunk_count=(
+            preparation.overlapped_chunk_count
+        ),
+        overlap_char_count=(
+            preparation.overlap_char_count
         ),
     )
 

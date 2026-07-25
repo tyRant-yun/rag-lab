@@ -39,8 +39,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=1200,
     )
     parser.add_argument(
+        "--overlap-chars",
+        type=int,
+        default=120,
+    )
+    parser.add_argument(
         "--chunking-version",
-        default="1.0.0",
+        default="1.1.0",
     )
     return parser
 
@@ -58,6 +63,7 @@ def main(
 
         config = ChunkingConfig(
             max_chars=arguments.max_chars,
+            overlap_chars=arguments.overlap_chars,
             chunking_version=(
                 arguments.chunking_version
             ),
@@ -93,6 +99,14 @@ def main(
     print(
         f"oversized atomic blocks: "
         f"{report.oversized_atomic_block_count}"
+    )
+    print(
+        f"overlapped chunks: "
+        f"{report.overlapped_chunk_count}"
+    )
+    print(
+        f"overlap characters: "
+        f"{report.overlap_char_count}"
     )
     print(
         f"output: {arguments.output.resolve()}"

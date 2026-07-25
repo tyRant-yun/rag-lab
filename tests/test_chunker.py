@@ -14,6 +14,8 @@ from rag_lab.chunking.chunker import (
     _CandidateGroup,
     _ChunkDraft,
     _ContentUnit,
+    _complete_sentence_suffix,
+    _draft_overlap_char_count,
     _draft_to_knowledge_chunk,
     _ends_complete_sentence,
     _group_body_blocks,
@@ -27,6 +29,7 @@ from rag_lab.chunking.chunker import (
     _prepare_oversized_units,
     _render_draft_content,
     _render_draft_index_text,
+    _select_overlap_units,
     _sentence_boundary_positions,
     _split_text_to_budget,
     _validate_and_sort_blocks,
@@ -608,7 +611,8 @@ def test_units_that_fit_share_one_draft():
         heading_path=("章节",),
         units=units,
         config=ChunkingConfig(
-            max_chars=100
+            max_chars=100,
+            overlap_chars=0,
         ),
     )
 
@@ -629,13 +633,160 @@ def test_overflow_starts_new_draft():
         heading_path=("章节",),
         units=units,
         config=ChunkingConfig(
-            max_chars=100
+            max_chars=100,
+            overlap_chars=0,
         ),
     )
 
     assert len(drafts) == 2
     assert drafts[0].units == (units[0],)
     assert drafts[1].units == (units[1],)
+
+
+def test_whole_unit_overlap_is_added_to_next_draft():
+    units = (
+        build_unit("A" * 60, 1),
+        build_unit(("乙" * 25) + "。", 2),
+        build_unit("C" * 60, 3),
+    )
+
+    drafts = _pack_content_units(
+        heading_path=("章节",),
+        units=units,
+        config=ChunkingConfig(
+            max_chars=100,
+            overlap_chars=30,
+        ),
+    )
+
+    assert len(drafts) == 2
+    assert drafts[0].units == units[:2]
+    assert drafts[1].units == units[1:]
+    assert drafts[1].overlap_unit_count == 1
+    assert _draft_overlap_char_count(
+        drafts[1]
+    ) == 26
+    assert all(
+        len(_render_draft_index_text(draft))
+        <= 100
+        for draft in drafts
+    )
+
+
+def test_overlap_uses_complete_sentence_suffix():
+    previous = build_unit(
+        ("甲" * 40)
+        + "。"
+        + ("乙" * 20)
+        + "。",
+        1,
+    )
+    current = build_unit("C" * 60, 2)
+
+    overlap = _select_overlap_units(
+        heading_path=("章节",),
+        source_units=(previous,),
+        next_unit=current,
+        config=ChunkingConfig(
+            max_chars=100,
+            overlap_chars=30,
+        ),
+    )
+
+    assert len(overlap) == 1
+    assert overlap[0].text == (
+        ("乙" * 20) + "。"
+    )
+    assert overlap[0].blocks == (
+        previous.blocks
+    )
+
+
+def test_incomplete_sentence_is_not_cut_for_overlap():
+    previous = build_unit("A" * 60, 1)
+    current = build_unit("B" * 60, 2)
+
+    overlap = _select_overlap_units(
+        heading_path=("章节",),
+        source_units=(previous,),
+        next_unit=current,
+        config=ChunkingConfig(
+            max_chars=100,
+            overlap_chars=30,
+        ),
+    )
+
+    assert overlap == ()
+
+
+def test_atomic_unit_is_not_split_for_overlap():
+    block = build_block(
+        ordinal=1,
+        text="T" * 40,
+        block_type=BlockType.TABLE.value,
+    )
+    atomic = _ContentUnit(
+        text=block.text,
+        blocks=(block,),
+    )
+    current = build_unit("B" * 60, 2)
+
+    overlap = _select_overlap_units(
+        heading_path=("章节",),
+        source_units=(atomic,),
+        next_unit=current,
+        config=ChunkingConfig(
+            max_chars=100,
+            overlap_chars=30,
+        ),
+    )
+
+    assert overlap == ()
+
+
+def test_overlap_does_not_propagate_to_third_draft():
+    units = tuple(
+        build_unit(
+            ("甲" * 39)
+            + "。"
+            + (character * 20)
+            + "。",
+            ordinal,
+        )
+        for ordinal, character in enumerate(
+            ("A", "B", "C"),
+            start=1,
+        )
+    )
+
+    drafts = _pack_content_units(
+        heading_path=("章节",),
+        units=units,
+        config=ChunkingConfig(
+            max_chars=100,
+            overlap_chars=25,
+        ),
+    )
+
+    assert len(drafts) == 3
+    assert drafts[1].overlap_unit_count == 1
+    assert drafts[2].overlap_unit_count == 1
+
+    third_block_ids = {
+        block.block_id
+        for unit in drafts[2].units
+        for block in unit.blocks
+    }
+
+    assert units[0].blocks[0].block_id not in (
+        third_block_ids
+    )
+    assert units[1].blocks[0].block_id in (
+        third_block_ids
+    )
+    assert units[2].blocks[0].block_id in (
+        third_block_ids
+    )
 
 
 def test_exact_limit_is_allowed():
@@ -654,7 +805,8 @@ def test_exact_limit_is_allowed():
         heading_path=draft.heading_path,
         units=draft.units,
         config=ChunkingConfig(
-            max_chars=100
+            max_chars=100,
+            overlap_chars=0,
         ),
     )
 
@@ -668,7 +820,8 @@ def test_single_oversized_unit_is_preserved():
         heading_path=("章节",),
         units=(unit,),
         config=ChunkingConfig(
-            max_chars=100
+            max_chars=100,
+            overlap_chars=0,
         ),
     )
 
@@ -684,7 +837,8 @@ def test_empty_units_produce_no_drafts():
         heading_path=("章节",),
         units=(),
         config=ChunkingConfig(
-            max_chars=100
+            max_chars=100,
+            overlap_chars=0,
         ),
     )
 
@@ -702,7 +856,8 @@ def test_packing_preserves_unit_order():
         heading_path=("章节",),
         units=units,
         config=ChunkingConfig(
-            max_chars=100
+            max_chars=100,
+            overlap_chars=0,
         ),
     )
 
@@ -739,7 +894,8 @@ def test_long_paragraph_prefers_sentence_boundary():
         heading_path=("章节",),
         units=(unit,),
         config=ChunkingConfig(
-            max_chars=100
+            max_chars=100,
+            overlap_chars=0,
         ),
     )
 
@@ -790,7 +946,8 @@ def test_list_item_can_be_split():
         heading_path=("章节",),
         units=(unit,),
         config=ChunkingConfig(
-            max_chars=100
+            max_chars=100,
+            overlap_chars=0,
         ),
     )
 
@@ -823,7 +980,8 @@ def test_oversized_atomic_unit_is_preserved(
         heading_path=("章节",),
         units=(unit,),
         config=ChunkingConfig(
-            max_chars=100
+            max_chars=100,
+            overlap_chars=0,
         ),
     )
 
@@ -889,7 +1047,8 @@ def test_draft_pipeline_aggregates_processing():
             first,
         ],
         config=ChunkingConfig(
-            max_chars=100
+            max_chars=100,
+            overlap_chars=0,
         ),
     )
 
@@ -967,7 +1126,8 @@ def test_normal_pipeline_respects_max_chars():
     result = _prepare_chunk_drafts(
         blocks=[first, second],
         config=ChunkingConfig(
-            max_chars=100
+            max_chars=100,
+            overlap_chars=0,
         ),
     )
 
@@ -1127,7 +1287,8 @@ def test_public_chunker_returns_result_and_report():
     result = chunk_normalized_blocks(
         blocks=blocks,
         config=ChunkingConfig(
-            max_chars=100
+            max_chars=100,
+            overlap_chars=0,
         ),
     )
 
@@ -1138,6 +1299,100 @@ def test_public_chunker_returns_result_and_report():
     )
     assert result.report.input_block_count == 2
     assert result.report.output_chunk_count == 1
+
+
+def test_public_chunker_reports_overlap_provenance():
+    first = build_block(
+        ordinal=1,
+        text=(
+            ("甲" * 40)
+            + "。"
+            + ("乙" * 20)
+            + "。"
+        ),
+    )
+    second = build_block(
+        ordinal=2,
+        text="B" * 60,
+    )
+
+    result = chunk_normalized_blocks(
+        blocks=[first, second],
+        config=ChunkingConfig(
+            max_chars=100,
+            overlap_chars=30,
+        ),
+    )
+
+    assert len(result.chunks) == 2
+    assert result.chunks[1].content.startswith(
+        ("乙" * 20) + "。"
+    )
+    assert result.chunks[1].block_ids == [
+        first.block_id,
+        second.block_id,
+    ]
+    assert result.report.overlapped_chunk_count == 1
+    assert result.report.overlap_char_count == 21
+
+
+def test_overlap_does_not_cross_heading_path():
+    first = build_block(
+        ordinal=1,
+        text=("甲" * 20) + "。",
+        heading_path=["第一节"],
+    )
+    second = build_block(
+        ordinal=2,
+        text="B" * 90,
+        heading_path=["第二节"],
+    )
+
+    result = chunk_normalized_blocks(
+        blocks=[first, second],
+        config=ChunkingConfig(
+            max_chars=100,
+            overlap_chars=30,
+        ),
+    )
+
+    assert len(result.chunks) == 2
+    assert result.chunks[1].block_ids == [
+        second.block_id,
+    ]
+    assert result.report.overlapped_chunk_count == 0
+    assert result.report.overlap_char_count == 0
+
+
+def test_zero_overlap_preserves_nonoverlapping_output():
+    first = build_block(
+        ordinal=1,
+        text=("甲" * 20) + "。",
+        heading_path=["章节"],
+    )
+    second = build_block(
+        ordinal=2,
+        text="B" * 90,
+        heading_path=["章节"],
+    )
+
+    result = chunk_normalized_blocks(
+        blocks=[first, second],
+        config=ChunkingConfig(
+            max_chars=100,
+            overlap_chars=0,
+        ),
+    )
+
+    assert [
+        chunk.block_ids
+        for chunk in result.chunks
+    ] == [
+        [first.block_id],
+        [second.block_id],
+    ]
+    assert result.report.overlapped_chunk_count == 0
+    assert result.report.overlap_char_count == 0
 
 
 def test_inserting_earlier_group_keeps_later_id():
