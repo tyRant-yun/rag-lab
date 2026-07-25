@@ -102,6 +102,8 @@ def test_cli_writes_chunking_outputs(
             str(output_path),
             "--max-chars",
             "100",
+            "--overlap-chars",
+            "0",
             "--chunking-version",
             "1.2.0",
         ]
@@ -138,6 +140,8 @@ def test_cli_writes_chunking_outputs(
         "chunked 2 blocks into 2 chunks"
         in captured.out
     )
+    assert "overlapped chunks: 0" in captured.out
+    assert "overlap characters: 0" in captured.out
 
 
 def test_reader_reports_invalid_json_line(

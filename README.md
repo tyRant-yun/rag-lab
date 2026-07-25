@@ -123,9 +123,13 @@ Normalizer 产物目录，并在 JSONL 和审阅 Markdown 中保存相对路径�
 9. 对仍然过长的单句使用字符级保底切分；
 10. 保持 table、code、equation 的原子性；
 11. 保留源 Block ID 和页码来源；
-12. 生成确定性的内容哈希和 Chunk ID。
+12. 在相同 `heading_path` 内添加 best-effort overlap；
+13. 生成确定性的内容哈希和 Chunk ID。
 
-当前版本不添加 overlap。
+默认 overlap 为 120 个字符。Chunker 优先重复完整内容单元；
+完整单元过大时，只对段落、列表和图注使用完整句子后缀。
+table、code、equation 不会为了 overlap 被拆开。若下一个 Chunk
+没有足够空间，实际 overlap 可以小于配置值，甚至为 0。
 
 ## 开发环境
 
@@ -190,7 +194,8 @@ python -m rag_lab.chunking.cli `
   --input "path\to\normalized\blocks.jsonl" `
   --output "path\to\chunked" `
   --max-chars 1200 `
-  --chunking-version "1.0.0"
+  --overlap-chars 120 `
+  --chunking-version "1.1.0"
 ```
 
 使用安装后的命令：
@@ -200,7 +205,8 @@ chunk-normalized `
   --input "path\to\normalized\blocks.jsonl" `
   --output "path\to\chunked" `
   --max-chars 1200 `
-  --chunking-version "1.0.0"
+  --overlap-chars 120 `
+  --chunking-version "1.1.0"
 ```
 
 Chunker 产物：
@@ -237,6 +243,8 @@ output_chunk_count
 cross_page_join_count
 long_block_split_count
 oversized_atomic_block_count
+overlapped_chunk_count
+overlap_char_count
 ```
 
 计数不为零不一定表示错误，而是表示应该在 `chunks.md` 中重点检查相关内容。
@@ -253,7 +261,9 @@ oversized_atomic_block_count
 - 跨页连接使用页码、顺序和标点启发式规则，无法覆盖所有复杂版面。
 - `max_chars` 计算 Unicode 字符数，而不是模型 Token 数。
 - table、code、equation 即使超长也保持原子性。
-- 当前 overlap 为 0。
+- overlap 是不超过目标字符数的 best-effort 结果，不保证每个
+  Chunk 都达到目标值。
+- overlap 不跨 `heading_path`，也不会截断 table、code、equation。
 - 一次 CLI 调用只处理一个文档。
 - 尚未实现增量索引、删除、Embedding、Qdrant、检索和 Agent。
 
@@ -269,6 +279,8 @@ KnowledgeChunk：8
 跨页段落连接：3
 超长正文切分：0
 超长原子块：0
+带 overlap 的 Chunk：3
+overlap 字符总数：266
 ```
 
 回归结果：
@@ -280,6 +292,8 @@ KnowledgeChunk：8
 - 没有空正文；
 - 没有遗漏或意外加入控制块；
 - 所有 `index_text` 均未超过 1200 字符；
+- 3 个 Chunk 获得 72、93、101 字符的句子级 overlap；
+- overlap 均位于相同 `heading_path`，没有跨章节传播；
 - 已知的“用于存／储和传输”跨页断句被正确恢复；
 - 内存重新计算结果与磁盘 JSONL 完全一致。
 

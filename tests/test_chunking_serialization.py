@@ -47,6 +47,8 @@ def build_result() -> ChunkingResult:
         cross_page_join_count=1,
         long_block_split_count=0,
         oversized_atomic_block_count=0,
+        overlapped_chunk_count=0,
+        overlap_char_count=0,
     )
 
     return ChunkingResult(
@@ -145,6 +147,8 @@ def test_chunking_report_is_parseable(
         "cross_page_join_count": 1,
         "long_block_split_count": 0,
         "oversized_atomic_block_count": 0,
+        "overlapped_chunk_count": 0,
+        "overlap_char_count": 0,
     }
 
 
@@ -160,6 +164,8 @@ def test_empty_chunks_create_empty_review_files(
             cross_page_join_count=0,
             long_block_split_count=0,
             oversized_atomic_block_count=0,
+            overlapped_chunk_count=0,
+            overlap_char_count=0,
         ),
     )
 
