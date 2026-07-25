@@ -87,6 +87,9 @@ Normalizer 版本计算，不包含 `ordinal`。因此在前方插入新 Block
 对于带图片的 Docling 文档，Normalizer 通过
 `pictures[*].captions[*].$ref` 将图注关联到图片，把资源复制到
 Normalizer 产物目录，并在 JSONL 和审阅 Markdown 中保存相对路径。
+直接调用 `write_normalization_outputs()` 时，如果没有传入
+`asset_source_directory`，所有引用图片必须已经存在于输出目录，
+否则函数会拒绝生成不完整的文档 bundle。
 
 ## KnowledgeChunk 契约
 
