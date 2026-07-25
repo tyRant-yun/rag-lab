@@ -3,15 +3,31 @@ import pytest
 from rag_lab.chunking.chunker import (
     _BODY_BLOCK_TYPES,
     _CONTROL_BLOCK_TYPES,
+    _CandidateGroup,
+    _ends_complete_sentence,
     _group_body_blocks,
     _is_body_block,
     _is_control_block,
+    _is_cross_page_paragraph_continuation,
+    _join_continuation_text,
+    _merge_cross_page_paragraphs,
     _validate_and_sort_blocks,
 )
 from rag_lab.contracts import (
     BlockType,
     NormalizedBlock,
 )
+
+
+def build_group(
+    *blocks: NormalizedBlock,
+) -> _CandidateGroup:
+    return _CandidateGroup(
+        heading_path=tuple(
+            blocks[0].heading_path
+        ),
+        blocks=blocks,
+    )
 
 
 def build_block(
@@ -350,3 +366,178 @@ def test_grouping_sorts_blocks_first():
         block.ordinal
         for block in groups[0].blocks
     ] == [1, 2, 3]
+
+
+def test_cross_page_chinese_paragraph_is_joined():
+    previous = build_block(
+        ordinal=1,
+        text="这些媒体用于存",
+        page_start=19,
+        page_end=19,
+    )
+    current = build_block(
+        ordinal=2,
+        text="储和传输数据。",
+        page_start=20,
+        page_end=20,
+    )
+
+    units, join_count = (
+        _merge_cross_page_paragraphs(
+            build_group(previous, current)
+        )
+    )
+
+    assert join_count == 1
+    assert len(units) == 1
+    assert units[0].text == (
+        "这些媒体用于存储和传输数据。"
+    )
+    assert units[0].blocks == (
+        previous,
+        current,
+    )
+
+
+def test_complete_sentence_is_not_joined():
+    previous = build_block(
+        ordinal=1,
+        text="这是完整句子。”",
+        page_start=19,
+        page_end=19,
+    )
+    current = build_block(
+        ordinal=2,
+        text="这是新的段落。",
+        page_start=20,
+        page_end=20,
+    )
+
+    assert _ends_complete_sentence(
+        previous.text
+    )
+
+    assert not (
+        _is_cross_page_paragraph_continuation(
+            previous,
+            current,
+        )
+    )
+
+
+def test_same_page_paragraphs_are_not_joined():
+    previous = build_block(
+        ordinal=1,
+        text="第一个段落",
+        page_start=19,
+        page_end=19,
+    )
+    current = build_block(
+        ordinal=2,
+        text="第二个段落",
+        page_start=19,
+        page_end=19,
+    )
+
+    units, join_count = (
+        _merge_cross_page_paragraphs(
+            build_group(previous, current)
+        )
+    )
+
+    assert join_count == 0
+    assert len(units) == 2
+
+
+def test_nonconsecutive_ordinals_are_not_joined():
+    previous = build_block(
+        ordinal=1,
+        text="上一页内容",
+        page_start=19,
+        page_end=19,
+    )
+    current = build_block(
+        ordinal=3,
+        text="下一页内容",
+        page_start=20,
+        page_end=20,
+    )
+
+    assert not (
+        _is_cross_page_paragraph_continuation(
+            previous,
+            current,
+        )
+    )
+
+
+def test_nonparagraph_blocks_are_not_joined():
+    previous = build_block(
+        ordinal=1,
+        text="列表内容",
+        block_type=BlockType.LIST_ITEM.value,
+        page_start=19,
+        page_end=19,
+    )
+    current = build_block(
+        ordinal=2,
+        text="下一页内容",
+        page_start=20,
+        page_end=20,
+    )
+
+    assert not (
+        _is_cross_page_paragraph_continuation(
+            previous,
+            current,
+        )
+    )
+
+
+def test_ascii_boundaries_receive_space():
+    assert _join_continuation_text(
+        "the",
+        "network",
+    ) == "the network"
+
+
+def test_three_page_continuation_forms_one_unit():
+    first = build_block(
+        ordinal=1,
+        text="用于",
+        page_start=19,
+        page_end=19,
+    )
+    second = build_block(
+        ordinal=2,
+        text="存储和",
+        page_start=20,
+        page_end=20,
+    )
+    third = build_block(
+        ordinal=3,
+        text="传输数据。",
+        page_start=21,
+        page_end=21,
+    )
+
+    units, join_count = (
+        _merge_cross_page_paragraphs(
+            build_group(
+                first,
+                second,
+                third,
+            )
+        )
+    )
+
+    assert join_count == 2
+    assert len(units) == 1
+    assert units[0].text == (
+        "用于存储和传输数据。"
+    )
+    assert units[0].blocks == (
+        first,
+        second,
+        third,
+    )
