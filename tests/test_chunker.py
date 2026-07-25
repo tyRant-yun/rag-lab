@@ -1,6 +1,10 @@
 import pytest
 
 from rag_lab.chunking.chunker import (
+    _BODY_BLOCK_TYPES,
+    _CONTROL_BLOCK_TYPES,
+    _is_body_block,
+    _is_control_block,
     _validate_and_sort_blocks,
 )
 from rag_lab.contracts import (
@@ -148,3 +152,83 @@ def test_duplicate_ordinals_are_rejected():
         match="ordinal",
     ):
         _validate_and_sort_blocks(blocks)
+
+@pytest.mark.parametrize(
+    (
+        "block_type",
+        "is_control",
+    ),
+    [
+        (
+            BlockType.DOCUMENT_TITLE.value,
+            True,
+        ),
+        (
+            BlockType.SECTION_HEADING.value,
+            True,
+        ),
+        (
+            BlockType.PARAGRAPH.value,
+            False,
+        ),
+        (
+            BlockType.LIST_ITEM.value,
+            False,
+        ),
+        (
+            BlockType.FIGURE_CAPTION.value,
+            False,
+        ),
+        (
+            BlockType.TABLE.value,
+            False,
+        ),
+        (
+            BlockType.CODE.value,
+            False,
+        ),
+        (
+            BlockType.EQUATION.value,
+            False,
+        ),
+    ],
+)
+def test_block_role_is_classified(
+    block_type,
+    is_control,
+):
+    overrides = {
+        "block_type": block_type,
+    }
+
+    if is_control:
+        overrides.update(
+            {
+                "text": "测试标题",
+                "heading_path": ["测试标题"],
+            }
+        )
+
+    block = build_block(
+        ordinal=1,
+        **overrides,
+    )
+
+    assert _is_control_block(block) is is_control
+    assert _is_body_block(block) is not is_control
+
+
+def test_block_roles_cover_all_supported_types():
+    supported_types = {
+        member.value
+        for member in BlockType
+    }
+
+    assert _CONTROL_BLOCK_TYPES.isdisjoint(
+        _BODY_BLOCK_TYPES
+    )
+
+    assert (
+        _CONTROL_BLOCK_TYPES
+        | _BODY_BLOCK_TYPES
+    ) == supported_types

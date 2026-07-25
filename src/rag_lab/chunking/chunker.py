@@ -2,7 +2,44 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from rag_lab.contracts import NormalizedBlock
+from rag_lab.contracts import (
+    BlockType,
+    NormalizedBlock,
+)
+
+_CONTROL_BLOCK_TYPES: frozenset[str] = frozenset(
+    {
+        BlockType.DOCUMENT_TITLE.value,
+        BlockType.SECTION_HEADING.value,
+    }
+)
+
+_BODY_BLOCK_TYPES: frozenset[str] = frozenset(
+    {
+        BlockType.PARAGRAPH.value,
+        BlockType.LIST_ITEM.value,
+        BlockType.FIGURE_CAPTION.value,
+        BlockType.TABLE.value,
+        BlockType.CODE.value,
+        BlockType.EQUATION.value,
+    }
+)
+
+
+def _is_control_block(
+    block: NormalizedBlock,
+) -> bool:
+    """Return whether a block controls chunk boundaries."""
+
+    return block.block_type in _CONTROL_BLOCK_TYPES
+
+
+def _is_body_block(
+    block: NormalizedBlock,
+) -> bool:
+    """Return whether a block contributes chunk content."""
+
+    return block.block_type in _BODY_BLOCK_TYPES
 
 
 def _validate_and_sort_blocks(
