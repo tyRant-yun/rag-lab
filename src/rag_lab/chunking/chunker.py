@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from rag_lab.contracts import (
     BlockType,
@@ -24,6 +25,14 @@ _BODY_BLOCK_TYPES: frozenset[str] = frozenset(
         BlockType.EQUATION.value,
     }
 )
+
+
+@dataclass(frozen=True, slots=True)
+class _CandidateGroup:
+    """Consecutive body blocks under one heading path."""
+
+    heading_path: tuple[str, ...]
+    blocks: tuple[NormalizedBlock, ...]
 
 
 def _is_control_block(
@@ -107,3 +116,67 @@ def _validate_and_sort_blocks(
         blocks,
         key=lambda block: block.ordinal,
     )
+
+
+def _group_body_blocks(
+    blocks: Sequence[NormalizedBlock],
+) -> list[_CandidateGroup]:
+    """Group consecutive body blocks by heading path."""
+
+    ordered_blocks = _validate_and_sort_blocks(
+        blocks
+    )
+
+    groups: list[_CandidateGroup] = []
+    current_heading_path: tuple[str, ...] = ()
+    current_blocks: list[NormalizedBlock] = []
+
+    def flush_current_group() -> None:
+        nonlocal current_heading_path
+        nonlocal current_blocks
+
+        if not current_blocks:
+            return
+
+        groups.append(
+            _CandidateGroup(
+                heading_path=current_heading_path,
+                blocks=tuple(current_blocks),
+            )
+        )
+
+        current_heading_path = ()
+        current_blocks = []
+
+    for block in ordered_blocks:
+        if _is_control_block(block):
+            flush_current_group()
+            continue
+
+        if not _is_body_block(block):
+            raise ValueError(
+                f"unsupported block role: "
+                f"{block.block_type}"
+            )
+
+        block_heading_path = tuple(
+            block.heading_path
+        )
+
+        if (
+            current_blocks
+            and block_heading_path
+            != current_heading_path
+        ):
+            flush_current_group()
+
+        if not current_blocks:
+            current_heading_path = (
+                block_heading_path
+            )
+
+        current_blocks.append(block)
+
+    flush_current_group()
+
+    return groups

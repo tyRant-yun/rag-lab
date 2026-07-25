@@ -3,6 +3,7 @@ import pytest
 from rag_lab.chunking.chunker import (
     _BODY_BLOCK_TYPES,
     _CONTROL_BLOCK_TYPES,
+    _group_body_blocks,
     _is_body_block,
     _is_control_block,
     _validate_and_sort_blocks,
@@ -232,3 +233,120 @@ def test_block_roles_cover_all_supported_types():
         _CONTROL_BLOCK_TYPES
         | _BODY_BLOCK_TYPES
     ) == supported_types
+
+
+def test_same_heading_body_blocks_share_group():
+    blocks = [
+        build_block(ordinal=1),
+        build_block(
+            ordinal=2,
+            block_type=BlockType.LIST_ITEM.value,
+        ),
+    ]
+
+    groups = _group_body_blocks(blocks)
+
+    assert len(groups) == 1
+    assert groups[0].heading_path == (
+        "第1章 计算机网络和因特网",
+    )
+    assert [
+        block.ordinal
+        for block in groups[0].blocks
+    ] == [1, 2]
+
+
+def test_heading_path_change_starts_new_group():
+    blocks = [
+        build_block(
+            ordinal=1,
+            heading_path=["第1章", "1.1"],
+        ),
+        build_block(
+            ordinal=2,
+            heading_path=["第1章", "1.2"],
+        ),
+    ]
+
+    groups = _group_body_blocks(blocks)
+
+    assert len(groups) == 2
+    assert groups[0].heading_path == (
+        "第1章",
+        "1.1",
+    )
+    assert groups[1].heading_path == (
+        "第1章",
+        "1.2",
+    )
+
+
+def test_control_block_ends_current_group():
+    blocks = [
+        build_block(
+            ordinal=1,
+            heading_path=["第1章", "1.1"],
+        ),
+        build_block(
+            ordinal=2,
+            text="1.1",
+            block_type=(
+                BlockType.SECTION_HEADING.value
+            ),
+            heading_path=["第1章", "1.1"],
+        ),
+        build_block(
+            ordinal=3,
+            heading_path=["第1章", "1.1"],
+        ),
+    ]
+
+    groups = _group_body_blocks(blocks)
+
+    assert len(groups) == 2
+    assert [
+        block.ordinal
+        for block in groups[0].blocks
+    ] == [1]
+    assert [
+        block.ordinal
+        for block in groups[1].blocks
+    ] == [3]
+
+
+def test_control_only_input_produces_no_groups():
+    blocks = [
+        build_block(
+            ordinal=1,
+            text="第1章",
+            block_type=(
+                BlockType.DOCUMENT_TITLE.value
+            ),
+            heading_path=["第1章"],
+        ),
+        build_block(
+            ordinal=2,
+            text="1.1",
+            block_type=(
+                BlockType.SECTION_HEADING.value
+            ),
+            heading_path=["第1章", "1.1"],
+        ),
+    ]
+
+    assert _group_body_blocks(blocks) == []
+
+
+def test_grouping_sorts_blocks_first():
+    third = build_block(ordinal=3)
+    first = build_block(ordinal=1)
+    second = build_block(ordinal=2)
+
+    groups = _group_body_blocks(
+        [third, first, second]
+    )
+
+    assert [
+        block.ordinal
+        for block in groups[0].blocks
+    ] == [1, 2, 3]
