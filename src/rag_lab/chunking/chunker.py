@@ -103,6 +103,16 @@ class _UnitPreparationResult:
     oversized_atomic_block_count: int
 
 
+@dataclass(frozen=True, slots=True)
+class _DraftPreparationResult:
+    """Chunk drafts and aggregated processing statistics."""
+
+    drafts: tuple[_ChunkDraft, ...]
+    cross_page_join_count: int
+    long_block_split_count: int
+    oversized_atomic_block_count: int
+
+
 def _is_control_block(
     block: NormalizedBlock,
 ) -> bool:
@@ -624,6 +634,65 @@ def _prepare_oversized_units(
 
     return _UnitPreparationResult(
         units=tuple(prepared_units),
+        long_block_split_count=(
+            long_block_split_count
+        ),
+        oversized_atomic_block_count=(
+            oversized_atomic_block_count
+        ),
+    )
+
+
+def _prepare_chunk_drafts(
+    *,
+    blocks: Sequence[NormalizedBlock],
+    config: ChunkingConfig,
+) -> _DraftPreparationResult:
+    """Run normalized blocks through the draft pipeline."""
+
+    groups = _group_body_blocks(blocks)
+
+    drafts: list[_ChunkDraft] = []
+    cross_page_join_count = 0
+    long_block_split_count = 0
+    oversized_atomic_block_count = 0
+
+    for group in groups:
+        merged_units, group_join_count = (
+            _merge_cross_page_paragraphs(
+                group
+            )
+        )
+
+        preparation = _prepare_oversized_units(
+            heading_path=group.heading_path,
+            units=merged_units,
+            config=config,
+        )
+
+        group_drafts = _pack_content_units(
+            heading_path=group.heading_path,
+            units=preparation.units,
+            config=config,
+        )
+
+        drafts.extend(group_drafts)
+
+        cross_page_join_count += (
+            group_join_count
+        )
+        long_block_split_count += (
+            preparation.long_block_split_count
+        )
+        oversized_atomic_block_count += (
+            preparation.oversized_atomic_block_count
+        )
+
+    return _DraftPreparationResult(
+        drafts=tuple(drafts),
+        cross_page_join_count=(
+            cross_page_join_count
+        ),
         long_block_split_count=(
             long_block_split_count
         ),

@@ -23,6 +23,7 @@ from rag_lab.chunking.chunker import (
     _sentence_boundary_positions,
     _split_text_to_budget,
     _validate_and_sort_blocks,
+    _prepare_chunk_drafts,
 )
 from rag_lab.contracts import (
     BlockType,
@@ -850,3 +851,130 @@ def test_decimal_period_is_not_sentence_boundary():
         text.index("。") + 1,
         len(text),
     )
+
+
+def test_draft_pipeline_aggregates_processing():
+    first = build_block(
+        ordinal=1,
+        text="A" * 60,
+        page_start=19,
+        page_end=19,
+    )
+    second = build_block(
+        ordinal=2,
+        text=("B" * 60) + "。",
+        page_start=20,
+        page_end=20,
+    )
+    atomic = build_block(
+        ordinal=3,
+        text="T" * 120,
+        block_type=BlockType.TABLE.value,
+        heading_path=["第二节"],
+        page_start=21,
+        page_end=21,
+    )
+
+    # 故意使用乱序输入，验证完整流水线会先排序。
+    result = _prepare_chunk_drafts(
+        blocks=[
+            atomic,
+            second,
+            first,
+        ],
+        config=ChunkingConfig(
+            max_chars=100
+        ),
+    )
+
+    assert result.cross_page_join_count == 1
+    assert result.long_block_split_count == 1
+    assert (
+        result.oversized_atomic_block_count
+        == 1
+    )
+
+    assert len(result.drafts) == 3
+
+    assert result.drafts[0].heading_path == (
+        "第1章 计算机网络和因特网",
+    )
+    assert result.drafts[1].heading_path == (
+        "第1章 计算机网络和因特网",
+    )
+    assert result.drafts[2].heading_path == (
+        "第二节",
+    )
+
+    assert [
+        block.ordinal
+        for unit in result.drafts[2].units
+        for block in unit.blocks
+    ] == [3]
+
+
+def test_control_only_pipeline_produces_no_drafts():
+    title = build_block(
+        ordinal=1,
+        text="计算机网络",
+        block_type=(
+            BlockType.DOCUMENT_TITLE.value
+        ),
+        heading_path=["计算机网络"],
+    )
+    heading = build_block(
+        ordinal=2,
+        text="第1章",
+        block_type=(
+            BlockType.SECTION_HEADING.value
+        ),
+        heading_path=[
+            "计算机网络",
+            "第1章",
+        ],
+    )
+
+    result = _prepare_chunk_drafts(
+        blocks=[title, heading],
+        config=ChunkingConfig(),
+    )
+
+    assert result.drafts == ()
+    assert result.cross_page_join_count == 0
+    assert result.long_block_split_count == 0
+    assert (
+        result.oversized_atomic_block_count
+        == 0
+    )
+
+
+def test_normal_pipeline_respects_max_chars():
+    first = build_block(
+        ordinal=1,
+        text="A" * 40,
+    )
+    second = build_block(
+        ordinal=2,
+        text="B" * 40,
+    )
+
+    result = _prepare_chunk_drafts(
+        blocks=[first, second],
+        config=ChunkingConfig(
+            max_chars=100
+        ),
+    )
+
+    assert len(result.drafts) == 1
+    assert result.cross_page_join_count == 0
+    assert result.long_block_split_count == 0
+    assert (
+        result.oversized_atomic_block_count
+        == 0
+    )
+
+    assert len(
+        _render_draft_index_text(
+            result.drafts[0]
+        )
+    ) <= 100
