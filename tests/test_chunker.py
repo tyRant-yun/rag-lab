@@ -2,8 +2,10 @@ import pytest
 
 from rag_lab.chunking import ChunkingConfig
 from rag_lab.chunking.chunker import (
+    _ATOMIC_BODY_TYPES,
     _BODY_BLOCK_TYPES,
     _CONTROL_BLOCK_TYPES,
+    _SPLITTABLE_BODY_TYPES,
     _CandidateGroup,
     _ChunkDraft,
     _ContentUnit,
@@ -15,8 +17,11 @@ from rag_lab.chunking.chunker import (
     _join_continuation_text,
     _merge_cross_page_paragraphs,
     _pack_content_units,
+    _prepare_oversized_units,
     _render_draft_content,
     _render_draft_index_text,
+    _sentence_boundary_positions,
+    _split_text_to_budget,
     _validate_and_sort_blocks,
 )
 from rag_lab.contracts import (
@@ -701,3 +706,147 @@ def test_packing_preserves_unit_order():
     ]
 
     assert packed_ordinals == [1, 2, 3]
+
+
+def test_atomic_and_splittable_types_cover_body_types():
+    assert _ATOMIC_BODY_TYPES.isdisjoint(
+        _SPLITTABLE_BODY_TYPES
+    )
+
+    assert (
+        _ATOMIC_BODY_TYPES
+        | _SPLITTABLE_BODY_TYPES
+    ) == _BODY_BLOCK_TYPES
+
+
+def test_long_paragraph_prefers_sentence_boundary():
+    text = (
+        ("甲" * 60)
+        + "。"
+        + ("乙" * 60)
+        + "。"
+    )
+    unit = build_unit(text, 1)
+
+    result = _prepare_oversized_units(
+        heading_path=("章节",),
+        units=(unit,),
+        config=ChunkingConfig(
+            max_chars=100
+        ),
+    )
+
+    assert result.long_block_split_count == 1
+    assert result.oversized_atomic_block_count == 0
+    assert len(result.units) == 2
+    assert result.units[0].text == (
+        ("甲" * 60) + "。"
+    )
+    assert result.units[1].text == (
+        ("乙" * 60) + "。"
+    )
+
+    assert all(
+        prepared.blocks == unit.blocks
+        for prepared in result.units
+    )
+
+
+def test_long_text_without_sentence_uses_hard_split():
+    text = "A" * 200
+
+    fragments = _split_text_to_budget(
+        text,
+        max_chars=96,
+    )
+
+    assert [
+        len(fragment)
+        for fragment in fragments
+    ] == [96, 96, 8]
+
+    assert "".join(fragments) == text
+
+
+def test_list_item_can_be_split():
+    block = build_block(
+        ordinal=1,
+        text="A" * 120,
+        block_type=BlockType.LIST_ITEM.value,
+    )
+    unit = _ContentUnit(
+        text=block.text,
+        blocks=(block,),
+    )
+
+    result = _prepare_oversized_units(
+        heading_path=("章节",),
+        units=(unit,),
+        config=ChunkingConfig(
+            max_chars=100
+        ),
+    )
+
+    assert result.long_block_split_count == 1
+    assert len(result.units) == 2
+
+
+@pytest.mark.parametrize(
+    "block_type",
+    [
+        BlockType.TABLE.value,
+        BlockType.CODE.value,
+        BlockType.EQUATION.value,
+    ],
+)
+def test_oversized_atomic_unit_is_preserved(
+    block_type,
+):
+    block = build_block(
+        ordinal=1,
+        text="A" * 120,
+        block_type=block_type,
+    )
+    unit = _ContentUnit(
+        text=block.text,
+        blocks=(block,),
+    )
+
+    result = _prepare_oversized_units(
+        heading_path=("章节",),
+        units=(unit,),
+        config=ChunkingConfig(
+            max_chars=100
+        ),
+    )
+
+    assert result.units == (unit,)
+    assert result.long_block_split_count == 0
+    assert (
+        result.oversized_atomic_block_count
+        == 1
+    )
+
+
+def test_heading_must_leave_content_capacity():
+    with pytest.raises(
+        ValueError,
+        match="leave room for content",
+    ):
+        _split_text_to_budget(
+            "正文",
+            max_chars=0,
+        )
+
+
+def test_decimal_period_is_not_sentence_boundary():
+    text = "RTT 为 3.14 秒。下一句。"
+
+    boundaries = _sentence_boundary_positions(
+        text
+    )
+
+    assert boundaries == (
+        text.index("。") + 1,
+        len(text),
+    )

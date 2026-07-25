@@ -27,6 +27,22 @@ _BODY_BLOCK_TYPES: frozenset[str] = frozenset(
     }
 )
 
+_ATOMIC_BODY_TYPES: frozenset[str] = frozenset(
+    {
+        BlockType.TABLE.value,
+        BlockType.CODE.value,
+        BlockType.EQUATION.value,
+    }
+)
+
+_SPLITTABLE_BODY_TYPES: frozenset[str] = frozenset(
+    {
+        BlockType.PARAGRAPH.value,
+        BlockType.LIST_ITEM.value,
+        BlockType.FIGURE_CAPTION.value,
+    }
+)
+
 _SENTENCE_TERMINATORS: frozenset[str] = frozenset(
     {
         "。",
@@ -76,6 +92,15 @@ class _ChunkDraft:
 
     heading_path: tuple[str, ...]
     units: tuple[_ContentUnit, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class _UnitPreparationResult:
+    """Prepared units and oversized-content statistics."""
+
+    units: tuple[_ContentUnit, ...]
+    long_block_split_count: int
+    oversized_atomic_block_count: int
 
 
 def _is_control_block(
@@ -411,3 +436,198 @@ def _pack_content_units(
         )
 
     return tuple(drafts)
+
+
+def _sentence_boundary_positions(
+    text: str,
+) -> tuple[int, ...]:
+    """Return end offsets for conservative sentence boundaries."""
+
+    boundaries: list[int] = []
+    index = 0
+
+    while index < len(text):
+        character = text[index]
+
+        if character not in _SENTENCE_TERMINATORS:
+            index += 1
+            continue
+
+        end = index + 1
+
+        while (
+            end < len(text)
+            and text[end] in _TRAILING_CLOSERS
+        ):
+            end += 1
+
+        # 英文句点只有位于文本末尾或后接空白时，
+        # 才视为句子边界，避免拆开 IP、域名和小数。
+        if (
+            character == "."
+            and end < len(text)
+            and not text[end].isspace()
+        ):
+            index += 1
+            continue
+
+        boundaries.append(end)
+        index = end
+
+    return tuple(boundaries)
+
+
+def _split_text_to_budget(
+    text: str,
+    max_chars: int,
+) -> tuple[str, ...]:
+    """Split text at sentence boundaries with hard fallback."""
+
+    if max_chars < 1:
+        raise ValueError(
+            "max_chars must leave room for content"
+        )
+
+    normalized = text.strip()
+
+    if len(normalized) <= max_chars:
+        return (normalized,)
+
+    boundaries = _sentence_boundary_positions(
+        normalized
+    )
+
+    fragments: list[str] = []
+    start = 0
+
+    while start < len(normalized):
+        limit = min(
+            start + max_chars,
+            len(normalized),
+        )
+
+        if limit == len(normalized):
+            end = limit
+        else:
+            eligible_boundaries = [
+                boundary
+                for boundary in boundaries
+                if start < boundary <= limit
+            ]
+
+            end = (
+                eligible_boundaries[-1]
+                if eligible_boundaries
+                else limit
+            )
+
+        fragment = normalized[start:end].strip()
+
+        if fragment:
+            fragments.append(fragment)
+
+        start = end
+
+        while (
+            start < len(normalized)
+            and normalized[start].isspace()
+        ):
+            start += 1
+
+    return tuple(fragments)
+
+
+def _content_char_budget(
+    *,
+    heading_path: tuple[str, ...],
+    config: ChunkingConfig,
+) -> int:
+    """Return content capacity after heading context."""
+
+    heading_text = "\n".join(heading_path)
+
+    return (
+        config.max_chars
+        - len(heading_text)
+        - 2
+    )
+
+
+def _prepare_oversized_units(
+    *,
+    heading_path: tuple[str, ...],
+    units: Sequence[_ContentUnit],
+    config: ChunkingConfig,
+) -> _UnitPreparationResult:
+    """Split oversized text units and preserve atomic units."""
+
+    prepared_units: list[_ContentUnit] = []
+    long_block_split_count = 0
+    oversized_atomic_block_count = 0
+
+    for unit in units:
+        single_unit_draft = _ChunkDraft(
+            heading_path=heading_path,
+            units=(unit,),
+        )
+
+        if (
+            len(
+                _render_draft_index_text(
+                    single_unit_draft
+                )
+            )
+            <= config.max_chars
+        ):
+            prepared_units.append(unit)
+            continue
+
+        block_types = {
+            block.block_type
+            for block in unit.blocks
+        }
+
+        if block_types.issubset(
+            _ATOMIC_BODY_TYPES
+        ):
+            prepared_units.append(unit)
+            oversized_atomic_block_count += 1
+            continue
+
+        if not block_types.issubset(
+            _SPLITTABLE_BODY_TYPES
+        ):
+            raise ValueError(
+                "content unit contains incompatible "
+                "block types"
+            )
+
+        content_budget = _content_char_budget(
+            heading_path=heading_path,
+            config=config,
+        )
+
+        fragments = _split_text_to_budget(
+            unit.text,
+            content_budget,
+        )
+
+        prepared_units.extend(
+            _ContentUnit(
+                text=fragment,
+                blocks=unit.blocks,
+            )
+            for fragment in fragments
+        )
+
+        long_block_split_count += 1
+
+    return _UnitPreparationResult(
+        units=tuple(prepared_units),
+        long_block_split_count=(
+            long_block_split_count
+        ),
+        oversized_atomic_block_count=(
+            oversized_atomic_block_count
+        ),
+    )
