@@ -1,14 +1,14 @@
 import json
 from pathlib import Path
 
-from knowledge_normalizer.models import (
+from rag_lab.contracts.blocks import (
     BlockType,
 )
-from knowledge_normalizer.normalizer import (
+from rag_lab.normalization.normalizer import (
     normalize_docling_document,
     normalize_text,
 )
-from knowledge_normalizer.serialization import (
+from rag_lab.normalization.serialization import (
     write_normalization_outputs,
 )
 

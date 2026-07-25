@@ -5,10 +5,10 @@ import json
 from pathlib import Path
 from typing import Sequence
 
-from knowledge_normalizer.normalizer import (
+from rag_lab.normalization.normalizer import (
     normalize_docling_document,
 )
-from knowledge_normalizer.serialization import (
+from rag_lab.normalization.serialization import (
     write_normalization_outputs,
 )
 
@@ -84,4 +84,3 @@ def main(
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

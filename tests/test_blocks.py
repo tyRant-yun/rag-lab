@@ -1,6 +1,6 @@
 import pytest
 
-from knowledge_normalizer.models import (
+from rag_lab.contracts.blocks import (
     BlockType,
     NormalizedBlock,
 )

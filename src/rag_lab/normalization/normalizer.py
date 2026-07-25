@@ -6,11 +6,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from knowledge_normalizer.models import (
+from rag_lab.contracts.blocks import (
     BlockType,
+    NormalizedBlock,
+)
+from rag_lab.normalization.models import (
     NormalizationReport,
     NormalizationResult,
-    NormalizedBlock,
 )
 
 

@@ -3,10 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from knowledge_normalizer.models import (
+from rag_lab.contracts.blocks import (
     BlockType,
-    NormalizationResult,
     NormalizedBlock,
+)
+from rag_lab.normalization.models import (
+    NormalizationResult,
 )
 
 

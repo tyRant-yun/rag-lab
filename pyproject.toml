@@ -3,14 +3,14 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "knowledge-normalizer"
+name = "rag-lab"
 version = "0.1.0"
-description = "Normalize Docling JSON into ordered, source-grounded blocks."
+description = "Local knowledge-base product for source-grounded RAG workflows."
 requires-python = ">=3.12"
 dependencies = ["pydantic>=2.0,<3"]
 
 [project.scripts]
-normalize-docling = "knowledge_normalizer.cli:main"
+normalize-docling = "rag_lab.normalization.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
