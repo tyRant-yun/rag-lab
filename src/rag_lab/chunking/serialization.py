@@ -4,11 +4,61 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from rag_lab.chunking.models import (
     ChunkingResult,
 )
-from rag_lab.contracts import KnowledgeChunk
+from rag_lab.contracts import (
+    KnowledgeChunk,
+    NormalizedBlock,
+)
 
+
+def read_normalized_blocks_jsonl(
+    path: Path,
+) -> tuple[NormalizedBlock, ...]:
+    """Read and validate normalized blocks line by line."""
+
+    blocks: list[NormalizedBlock] = []
+
+    with path.open(
+        encoding="utf-8"
+    ) as stream:
+        for line_number, raw_line in enumerate(
+            stream,
+            start=1,
+        ):
+            line = raw_line.strip()
+
+            if not line:
+                raise ValueError(
+                    f"{path}: line {line_number}: "
+                    "empty JSONL record"
+                )
+
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError as error:
+                raise ValueError(
+                    f"{path}: line {line_number}: "
+                    "invalid JSON"
+                ) from error
+
+            try:
+                block = NormalizedBlock.model_validate(
+                    payload,
+                    strict=True,
+                )
+            except ValidationError as error:
+                raise ValueError(
+                    f"{path}: line {line_number}: "
+                    "invalid NormalizedBlock"
+                ) from error
+
+            blocks.append(block)
+
+    return tuple(blocks)
 
 def write_chunking_outputs(
     *,
