@@ -38,15 +38,27 @@ class _RawBlock:
     top_from_page: float
     left: float
     parent_ref: str | None
+    image_path: str | None
 
 
 @dataclass(frozen=True, slots=True)
 class _CandidateBlock:
+    source_ref: str
     text: str
     block_type: BlockType
     heading_path: tuple[str, ...]
     page_start: int
     page_end: int
+    image_path: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class _ChapterMarker:
+    text: str
+    page: int
+    top_from_page: float
+    left: float
+    original_index: int
 
 
 def compute_document_id(
@@ -130,6 +142,7 @@ def normalize_docling_document(
     docling_document: dict[str, Any],
     source_path: Path,
     normalization_version: str,
+    artifact_directory: Path | None = None,
 ) -> NormalizationResult:
     resolved_source = source_path.resolve()
 
@@ -152,8 +165,11 @@ def normalize_docling_document(
         raw_blocks,
         removed_furniture_count,
         source_pages,
-        chapter_marker,
-    ) = _extract_raw_blocks(docling_document)
+        chapter_markers,
+    ) = _extract_raw_blocks(
+        docling_document,
+        artifact_directory=artifact_directory,
+    )
 
     ordered_blocks, reordered_block_count = (
         _restore_single_column_order(raw_blocks)
@@ -166,7 +182,7 @@ def normalize_docling_document(
     ) = (
         _build_candidates(
             ordered_blocks,
-            chapter_marker=chapter_marker,
+            chapter_markers=chapter_markers,
         )
     )
 
@@ -175,7 +191,6 @@ def normalize_docling_document(
             block_id=_compute_block_id(
                 document_id=document_id,
                 candidate=candidate,
-                ordinal=index,
                 normalization_version=(
                     normalization_version
                 ),
@@ -192,7 +207,7 @@ def normalize_docling_document(
             page_end=candidate.page_end,
             ordinal=index,
             source_path=source_path_text,
-            image_path=None,
+            image_path=candidate.image_path,
             normalization_version=(
                 normalization_version
             ),
@@ -276,14 +291,13 @@ def _compute_block_id(
     *,
     document_id: str,
     candidate: _CandidateBlock,
-    ordinal: int,
     normalization_version: str,
 ) -> str:
     digest = hashlib.sha256()
     parts = (
         document_id,
         normalization_version,
-        str(ordinal),
+        candidate.source_ref,
         str(candidate.page_start),
         str(candidate.page_end),
         candidate.block_type.value,
@@ -304,13 +318,143 @@ def _compute_block_id(
     return f"sha256:{digest.hexdigest()}"
 
 
+def _extract_caption_image_paths(
+    document: dict[str, Any],
+    *,
+    artifact_directory: Path | None,
+) -> dict[str, str]:
+    pictures = document.get("pictures")
+
+    if not isinstance(pictures, list):
+        return {}
+
+    image_paths: dict[str, str] = {}
+
+    for picture in pictures:
+        if not isinstance(picture, dict):
+            continue
+
+        image = picture.get("image")
+        captions = picture.get("captions")
+
+        if (
+            not isinstance(image, dict)
+            or not isinstance(captions, list)
+        ):
+            continue
+
+        uri = image.get("uri")
+
+        if not isinstance(uri, str) or not uri:
+            continue
+
+        relative_path = _relative_image_path(
+            uri,
+            artifact_directory=(
+                artifact_directory
+            ),
+        )
+
+        if relative_path is None:
+            continue
+
+        for caption in captions:
+            if not isinstance(caption, dict):
+                continue
+
+            caption_ref = caption.get("$ref")
+
+            if not isinstance(caption_ref, str):
+                continue
+
+            existing = image_paths.get(
+                caption_ref
+            )
+
+            if (
+                existing is not None
+                and existing != relative_path
+            ):
+                raise ValueError(
+                    f"caption {caption_ref} refers "
+                    "to multiple images"
+                )
+
+            image_paths[caption_ref] = (
+                relative_path
+            )
+
+    return image_paths
+
+
+def _relative_image_path(
+    uri: str,
+    *,
+    artifact_directory: Path | None,
+) -> str | None:
+    image_path = Path(uri)
+    relative_path: Path | None = None
+    artifact_root = (
+        artifact_directory.resolve()
+        if artifact_directory is not None
+        else None
+    )
+
+    if not image_path.is_absolute():
+        relative_path = image_path
+    elif artifact_root is not None:
+        try:
+            relative_path = (
+                image_path.resolve().relative_to(
+                    artifact_root
+                )
+            )
+        except ValueError:
+            relative_path = None
+
+    if relative_path is None:
+        lower_parts = [
+            part.lower()
+            for part in image_path.parts
+        ]
+
+        if "assets" in lower_parts:
+            asset_index = len(lower_parts) - 1 - (
+                lower_parts[::-1].index(
+                    "assets"
+                )
+            )
+            relative_path = Path(
+                *image_path.parts[asset_index:]
+            )
+
+    if (
+        relative_path is None
+        or relative_path.is_absolute()
+        or ".." in relative_path.parts
+    ):
+        return None
+
+    if (
+        artifact_root is not None
+        and not (
+            artifact_root / relative_path
+        ).is_file()
+    ):
+        return None
+
+    return relative_path.as_posix()
+
+
 def _extract_raw_blocks(
     document: dict[str, Any],
+    *,
+    artifact_directory: Path | None,
 ) -> tuple[
     list[_RawBlock],
     int,
     tuple[int, ...],
-    str | None,
+    tuple[_ChapterMarker, ...],
 ]:
     pages = document.get("pages")
     texts = document.get("texts")
@@ -349,9 +493,15 @@ def _extract_raw_blocks(
 
     raw_blocks: list[_RawBlock] = []
     removed_furniture_count = 0
-    chapter_markers: list[
-        tuple[int, str]
-    ] = []
+    chapter_markers: list[_ChapterMarker] = []
+    caption_image_paths = (
+        _extract_caption_image_paths(
+            document,
+            artifact_directory=(
+                artifact_directory
+            ),
+        )
+    )
 
     for index, item in enumerate(texts):
         if not isinstance(item, dict):
@@ -388,18 +538,59 @@ def _extract_raw_blocks(
                 and provenance
                 and isinstance(provenance[0], dict)
                 and "page_no" in provenance[0]
+                and isinstance(
+                    provenance[0].get("bbox"),
+                    dict,
+                )
             ):
                 marker_page = int(
                     provenance[0]["page_no"]
                 )
+                marker_bbox = provenance[0][
+                    "bbox"
+                ]
+                marker_top = float(
+                    marker_bbox["t"]
+                )
+                marker_origin = str(
+                    marker_bbox.get(
+                        "coord_origin",
+                        "TOPLEFT",
+                    )
+                )
+
+                if marker_origin == "BOTTOMLEFT":
+                    marker_top_from_page = (
+                        page_heights[marker_page]
+                        - marker_top
+                    )
+                elif marker_origin == "TOPLEFT":
+                    marker_top_from_page = (
+                        marker_top
+                    )
+                else:
+                    raise ValueError(
+                        "unsupported coordinate "
+                        f"origin: {marker_origin}"
+                    )
+
                 chapter_markers.append(
-                    (
-                        marker_page,
-                        "第"
-                        + marker_match.group(
-                            "number"
-                        )
-                        + "章",
+                    _ChapterMarker(
+                        text=(
+                            "第"
+                            + marker_match.group(
+                                "number"
+                            )
+                            + "章"
+                        ),
+                        page=marker_page,
+                        top_from_page=(
+                            marker_top_from_page
+                        ),
+                        left=float(
+                            marker_bbox["l"]
+                        ),
+                        original_index=index,
                     )
                 )
 
@@ -489,6 +680,16 @@ def _extract_raw_blocks(
                 top_from_page=top_from_page,
                 left=left,
                 parent_ref=parent_ref,
+                image_path=(
+                    caption_image_paths.get(
+                        str(
+                            item.get(
+                                "self_ref",
+                                f"#/texts/{index}",
+                            )
+                        )
+                    )
+                ),
             )
         )
 
@@ -501,11 +702,7 @@ def _extract_raw_blocks(
         raw_blocks,
         removed_furniture_count,
         tuple(sorted(page_heights)),
-        (
-            min(chapter_markers)[1]
-            if chapter_markers
-            else None
-        ),
+        tuple(chapter_markers),
     )
 
 
@@ -538,7 +735,10 @@ def _restore_single_column_order(
 def _build_candidates(
     blocks: list[_RawBlock],
     *,
-    chapter_marker: str | None,
+    chapter_markers: tuple[
+        _ChapterMarker,
+        ...,
+    ],
 ) -> tuple[
     list[_CandidateBlock],
     int,
@@ -550,9 +750,52 @@ def _build_candidates(
     downgraded_heading_pages: set[int] = (
         set()
     )
-    title_consumed = False
+    document_title_consumed = False
+    pending_chapter_marker: str | None = (
+        None
+    )
+    events: list[
+        tuple[
+            tuple[int, float, float, int, int],
+            _RawBlock | _ChapterMarker,
+        ]
+    ] = []
+
+    for marker in chapter_markers:
+        events.append(
+            (
+                (
+                    marker.page,
+                    marker.top_from_page,
+                    marker.left,
+                    marker.original_index,
+                    0,
+                ),
+                marker,
+            )
+        )
 
     for block in blocks:
+        events.append(
+            (
+                (
+                    block.page_start,
+                    block.top_from_page,
+                    block.left,
+                    block.original_index,
+                    1,
+                ),
+                block,
+            )
+        )
+
+    for _, event in sorted(events):
+        if isinstance(event, _ChapterMarker):
+            pending_chapter_marker = event.text
+            heading_stack = []
+            continue
+
+        block = event
         text = normalize_text(block.text)
 
         if not text:
@@ -564,36 +807,42 @@ def _build_candidates(
 
         if (
             block.label == "section_header"
-            and not title_consumed
             and not heading_match
+            and (
+                pending_chapter_marker
+                or not document_title_consumed
+            )
         ):
             title = " ".join(
                 part
                 for part in (
-                    chapter_marker,
+                    pending_chapter_marker,
                     text,
                 )
                 if part
             )
             heading_stack = [title]
-            title_consumed = True
+            block_type = (
+                BlockType.DOCUMENT_TITLE
+                if not document_title_consumed
+                else BlockType.SECTION_HEADING
+            )
+            document_title_consumed = True
+            pending_chapter_marker = None
             candidates.append(
                 _CandidateBlock(
+                    source_ref=block.source_ref,
                     text=title,
-                    block_type=(
-                        BlockType.DOCUMENT_TITLE
-                    ),
+                    block_type=block_type,
                     heading_path=(title,),
                     page_start=block.page_start,
                     page_end=block.page_end,
+                    image_path=block.image_path,
                 )
             )
             continue
 
-        if (
-            chapter_marker
-            and not title_consumed
-        ):
+        if pending_chapter_marker:
             # A chapter marker may appear in furniture above the
             # actual chapter title. Text between those two items is
             # running furniture, not body content.
@@ -616,8 +865,7 @@ def _build_candidates(
 
             if not heading_stack:
                 heading_stack = [
-                    chapter_marker
-                    or "Document"
+                    "Document"
                 ]
 
             heading_stack = (
@@ -626,6 +874,7 @@ def _build_candidates(
             )
             candidates.append(
                 _CandidateBlock(
+                    source_ref=block.source_ref,
                     text=heading,
                     block_type=(
                         BlockType.SECTION_HEADING
@@ -635,6 +884,7 @@ def _build_candidates(
                     ),
                     page_start=block.page_start,
                     page_end=block.page_end,
+                    image_path=block.image_path,
                 )
             )
             continue
@@ -656,6 +906,7 @@ def _build_candidates(
         )
         candidates.append(
             _CandidateBlock(
+                source_ref=block.source_ref,
                 text=text,
                 block_type=block_type,
                 heading_path=tuple(
@@ -663,6 +914,7 @@ def _build_candidates(
                 ),
                 page_start=block.page_start,
                 page_end=block.page_end,
+                image_path=block.image_path,
             )
         )
 

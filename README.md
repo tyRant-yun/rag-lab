@@ -63,7 +63,7 @@ src/rag_lab/
 
 主要字段：
 
-- `block_id`：规范化 Block 的确定性 SHA-256 ID；
+- `block_id`：规范化 Block 的确定性 SHA-256 ID，不依赖输出顺序；
 - `document_id`：根据源 PDF 内容生成的文档 ID；
 - `text`：规范化后的文本；
 - `block_type`：段落、标题、列表、表格等结构类型；
@@ -71,7 +71,7 @@ src/rag_lab/
 - `page_start`、`page_end`：源 PDF 页码范围；
 - `ordinal`：从 1 开始的文档阅读顺序；
 - `source_path`：源文件路径；
-- `image_path`：可选图片路径；
+- `image_path`：可选图片路径，相对于 Normalizer 产物目录；
 - `normalization_version`：Normalizer 规则版本。
 
 Normalizer 输出：
@@ -79,6 +79,14 @@ Normalizer 输出：
 - `blocks.jsonl`：下游结构化接口；
 - `document.md`：人工审阅版本；
 - `normalization-report.json`：规范化质量报告。
+
+`block_id` 使用文档 ID、Docling 源引用、页码、内容结构和
+Normalizer 版本计算，不包含 `ordinal`。因此在前方插入新 Block
+时，后方来源与内容未变化的 Block ID 保持不变。
+
+对于带图片的 Docling 文档，Normalizer 通过
+`pictures[*].captions[*].$ref` 将图注关联到图片，把资源复制到
+Normalizer 产物目录，并在 JSONL 和审阅 Markdown 中保存相对路径。
 
 ## KnowledgeChunk 契约
 
@@ -151,7 +159,7 @@ python -m rag_lab.normalization.cli `
   --input-json "path\to\document.docling.json" `
   --source "path\to\source.pdf" `
   --output "path\to\normalized" `
-  --normalization-version "1.0.0"
+  --normalization-version "1.1.0"
 ```
 
 使用安装后的命令：
@@ -161,7 +169,7 @@ normalize-docling `
   --input-json "path\to\document.docling.json" `
   --source "path\to\source.pdf" `
   --output "path\to\normalized" `
-  --normalization-version "1.0.0"
+  --normalization-version "1.1.0"
 ```
 
 Normalizer 产物：
@@ -236,6 +244,10 @@ oversized_atomic_block_count
 ## 当前限制
 
 - Normalizer 阅读顺序恢复目前面向单栏教材。
+- 多章节教材依赖章节开页中独立的 `第 N 章` 标记；普通页眉中的
+  章节名称不会触发章节切换。
+- 只有通过 Docling caption 引用关联的图片会进入 `image_path`；
+  无图注图片目前不会生成独立 Block。
 - OCR 和 Docling 本身的识别错误不会被 Chunker修复。
 - 标题质量依赖 Normalizer 的标题分类。
 - 跨页连接使用页码、顺序和标点启发式规则，无法覆盖所有复杂版面。

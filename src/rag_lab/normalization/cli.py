@@ -37,7 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--normalization-version",
-        default="1.0.0",
+        default="1.1.0",
     )
     return parser
 
@@ -60,10 +60,16 @@ def main(
         normalization_version=(
             arguments.normalization_version
         ),
+        artifact_directory=(
+            arguments.input_json.resolve().parent
+        ),
     )
     write_normalization_outputs(
         result=result,
         output_directory=arguments.output,
+        asset_source_directory=(
+            arguments.input_json.resolve().parent
+        ),
     )
 
     print(

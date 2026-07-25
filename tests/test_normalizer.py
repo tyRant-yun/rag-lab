@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from pathlib import Path
 
 from rag_lab.contracts.blocks import (
@@ -294,6 +295,239 @@ def test_cross_page_paragraphs_remain_separate(
     assert continuation.page_start == 20
     assert continuation.page_end == 20
     assert continuation.ordinal == first.ordinal + 1
+
+
+def test_inserting_earlier_block_keeps_later_ids(
+    tmp_path: Path,
+):
+    source = tmp_path / "source.pdf"
+    source.write_bytes(b"fake-pdf")
+    original = sample_document()
+    modified = deepcopy(original)
+    texts = modified["texts"]
+    assert isinstance(texts, list)
+    texts.append(
+        text_item(
+            11,
+            text="新增的前置段落。",
+            page=19,
+            top=550,
+        )
+    )
+
+    before = normalize_docling_document(
+        docling_document=original,
+        source_path=source,
+        normalization_version="1.0.0",
+    )
+    after = normalize_docling_document(
+        docling_document=modified,
+        source_path=source,
+        normalization_version="1.0.0",
+    )
+    before_by_text = {
+        block.text: block
+        for block in before.blocks
+    }
+    after_by_text = {
+        block.text: block
+        for block in after.blocks
+    }
+
+    for text in (
+        "第一段未结束",
+        "第二段。",
+        "1.1.1 具体构成描述",
+        "用户使用 TCP/IP 协议。",
+    ):
+        assert (
+            before_by_text[text].block_id
+            == after_by_text[text].block_id
+        )
+
+    assert (
+        before_by_text["第一段未结束"].ordinal
+        != after_by_text["第一段未结束"].ordinal
+    )
+
+
+def test_caption_receives_relative_image_path(
+    tmp_path: Path,
+):
+    source = tmp_path / "source.pdf"
+    source.write_bytes(b"fake-pdf")
+    artifact_directory = tmp_path / "artifact"
+    assets = artifact_directory / "assets"
+    assets.mkdir(parents=True)
+    image = assets / "figure.png"
+    image.write_bytes(b"png")
+    document = sample_document()
+    document["pictures"] = [
+        {
+            "self_ref": "#/pictures/0",
+            "captions": [
+                {"$ref": "#/texts/10"}
+            ],
+            "image": {
+                "uri": str(image),
+                "mimetype": "image/png",
+            },
+        }
+    ]
+
+    result = normalize_docling_document(
+        docling_document=document,
+        source_path=source,
+        normalization_version="1.0.0",
+        artifact_directory=artifact_directory,
+    )
+    caption = next(
+        block
+        for block in result.blocks
+        if block.block_type
+        == BlockType.FIGURE_CAPTION.value
+    )
+
+    assert caption.image_path == (
+        "assets/figure.png"
+    )
+
+    output = tmp_path / "normalized"
+    write_normalization_outputs(
+        result=result,
+        output_directory=output,
+        asset_source_directory=(
+            artifact_directory
+        ),
+    )
+    markdown = (
+        output / "document.md"
+    ).read_text(encoding="utf-8")
+    assert (
+        "![图 1-1 示例]"
+        "(assets/figure.png)"
+        in markdown
+    )
+    assert (
+        output / "assets" / "figure.png"
+    ).read_bytes() == b"png"
+
+
+def test_multiple_chapters_reset_heading_path(
+    tmp_path: Path,
+):
+    source = tmp_path / "source.pdf"
+    source.write_bytes(b"fake-pdf")
+    document = {
+        "pages": {
+            str(page): {
+                "page_no": page,
+                "size": {
+                    "width": 500,
+                    "height": 700,
+                },
+            }
+            for page in (1, 2)
+        },
+        "texts": [
+            text_item(
+                0,
+                text="第 1 章",
+                page=1,
+                top=680,
+                label="page_header",
+                content_layer="furniture",
+            ),
+            text_item(
+                1,
+                text="第一章标题",
+                page=1,
+                top=640,
+                label="section_header",
+            ),
+            text_item(
+                2,
+                text="1. 1 第一节",
+                page=1,
+                top=600,
+                label="section_header",
+            ),
+            text_item(
+                3,
+                text="第一章正文。",
+                page=1,
+                top=540,
+            ),
+            text_item(
+                4,
+                text="第 2 章",
+                page=2,
+                top=680,
+                label="page_header",
+                content_layer="furniture",
+            ),
+            text_item(
+                5,
+                text="第二章标题",
+                page=2,
+                top=640,
+                label="section_header",
+            ),
+            text_item(
+                6,
+                text="2. 1 第二节",
+                page=2,
+                top=600,
+                label="section_header",
+            ),
+            text_item(
+                7,
+                text="第二章正文。",
+                page=2,
+                top=540,
+            ),
+        ],
+    }
+
+    result = normalize_docling_document(
+        docling_document=document,
+        source_path=source,
+        normalization_version="1.0.0",
+    )
+    second_chapter = next(
+        block
+        for block in result.blocks
+        if block.text == "第2章 第二章标题"
+    )
+    second_section = next(
+        block
+        for block in result.blocks
+        if block.text == "2.1 第二节"
+    )
+    second_body = next(
+        block
+        for block in result.blocks
+        if block.text == "第二章正文。"
+    )
+
+    assert second_chapter.block_type == (
+        BlockType.SECTION_HEADING.value
+    )
+    assert second_chapter.heading_path == [
+        "第2章 第二章标题"
+    ]
+    assert second_section.heading_path == [
+        "第2章 第二章标题",
+        "2.1 第二节",
+    ]
+    assert second_body.heading_path == [
+        "第2章 第二章标题",
+        "2.1 第二节",
+    ]
+    assert (
+        result.report.downgraded_heading_count
+        == 0
+    )
 
 
 def test_outputs_are_deterministic(

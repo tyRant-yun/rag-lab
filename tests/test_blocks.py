@@ -70,3 +70,22 @@ def test_heading_must_end_its_path():
                 "Different",
             ]
         )
+
+
+@pytest.mark.parametrize(
+    "image_path",
+    [
+        "D:/absolute/image.png",
+        "/absolute/image.png",
+        "../outside/image.png",
+        r"assets\image.png",
+    ],
+)
+def test_image_path_must_be_portable_and_relative(
+    image_path: str,
+):
+    with pytest.raises(
+        ValueError,
+        match="image_path",
+    ):
+        build_block(image_path=image_path)

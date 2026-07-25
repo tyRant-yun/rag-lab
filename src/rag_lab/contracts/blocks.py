@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from pathlib import PurePosixPath, PureWindowsPath
 from typing import Self
 
 from pydantic import BaseModel, ConfigDict, model_validator
@@ -75,6 +76,25 @@ class NormalizedBlock(BaseModel):
 
         if not self.source_path.strip():
             raise ValueError("source_path cannot be empty")
+
+        if self.image_path:
+            portable_image_path = (
+                PurePosixPath(self.image_path)
+            )
+
+            if (
+                portable_image_path.is_absolute()
+                or PureWindowsPath(
+                    self.image_path
+                ).is_absolute()
+                or ".."
+                in portable_image_path.parts
+                or "\\" in self.image_path
+            ):
+                raise ValueError(
+                    "image_path must be a portable "
+                    "relative path"
+                )
 
         if not self.normalization_version.strip():
             raise ValueError(
