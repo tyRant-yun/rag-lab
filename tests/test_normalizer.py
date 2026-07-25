@@ -194,7 +194,7 @@ def test_normalizer_restores_order_and_contract(
     )
 
     assert result.blocks[0].block_type == (
-        BlockType.DOCUMENT_TITLE
+        BlockType.DOCUMENT_TITLE.value
     )
     assert result.blocks[0].text == (
         "第1章 计算机网络和因特网"
@@ -218,7 +218,7 @@ def test_normalizer_restores_order_and_contract(
         == "1. 人类活动的类比"
     )
     assert false_heading.block_type == (
-        BlockType.PARAGRAPH
+        BlockType.PARAGRAPH.value
     )
     assert false_heading.heading_path[-1] == (
         "1.1.1 具体构成描述"
@@ -230,10 +230,25 @@ def test_normalizer_restores_order_and_contract(
         if block.text
         == "1.1.1 具体构成描述"
     )
-    assert heading.heading_path == (
+    assert heading.heading_path == [
         "第1章 计算机网络和因特网",
         "1.1 什么是因特网",
         "1.1.1 具体构成描述",
+    ]
+
+    assert all(
+        block.block_id.startswith("sha256:")
+        for block in result.blocks
+    )
+    assert len(
+        {
+            block.block_id
+            for block in result.blocks
+        }
+    ) == len(result.blocks)
+    assert all(
+        block.image_path is None
+        for block in result.blocks
     )
 
     assert result.report.reordered_block_count > 0
@@ -322,6 +337,7 @@ def test_outputs_are_deterministic(
     ]
 
     assert records[0].keys() == {
+        "block_id",
         "document_id",
         "text",
         "block_type",
@@ -330,5 +346,6 @@ def test_outputs_are_deterministic(
         "page_end",
         "ordinal",
         "source_path",
+        "image_path",
         "normalization_version",
     }

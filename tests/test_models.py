@@ -8,19 +8,19 @@ from knowledge_normalizer.models import (
 
 def build_block(**overrides):
     values = {
+        "block_id": "sha256:block",
         "document_id": "sha256:test",
         "text": "1.1 Test",
-        "block_type": (
-            BlockType.SECTION_HEADING
-        ),
-        "heading_path": (
+        "block_type": BlockType.SECTION_HEADING.value,
+        "heading_path": [
             "Chapter",
             "1.1 Test",
-        ),
+        ],
         "page_start": 1,
         "page_end": 1,
         "ordinal": 1,
         "source_path": "D:/source.pdf",
+        "image_path": None,
         "normalization_version": "1.0.0",
     }
     values.update(overrides)
@@ -31,6 +31,7 @@ def test_normalized_block_serializes_contract():
     block = build_block()
 
     assert block.to_dict() == {
+        "block_id": "sha256:block",
         "document_id": "sha256:test",
         "text": "1.1 Test",
         "block_type": "section_heading",
@@ -42,6 +43,7 @@ def test_normalized_block_serializes_contract():
         "page_end": 1,
         "ordinal": 1,
         "source_path": "D:/source.pdf",
+        "image_path": None,
         "normalization_version": "1.0.0",
     }
 
@@ -63,9 +65,8 @@ def test_heading_must_end_its_path():
         match="heading_path",
     ):
         build_block(
-            heading_path=(
+            heading_path=[
                 "Chapter",
                 "Different",
-            )
+            ]
         )
-

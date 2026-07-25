@@ -63,7 +63,7 @@ def _write_markdown(
     for block in blocks:
         metadata = (
             f"<!-- ordinal={block.ordinal} "
-            f"type={block.block_type.value} "
+            f"type={block.block_type} "
             f"pages={block.page_start}-"
             f"{block.page_end} -->"
         )
@@ -83,8 +83,8 @@ def _render_markdown_block(
     block: NormalizedBlock,
 ) -> str:
     if block.block_type in {
-        BlockType.DOCUMENT_TITLE,
-        BlockType.SECTION_HEADING,
+        BlockType.DOCUMENT_TITLE.value,
+        BlockType.SECTION_HEADING.value,
     }:
         level = min(
             max(len(block.heading_path), 1),
@@ -93,7 +93,7 @@ def _render_markdown_block(
         return f"{'#' * level} {block.text}"
 
     if block.block_type == (
-        BlockType.FIGURE_CAPTION
+        BlockType.FIGURE_CAPTION.value
     ):
         return f"*{block.text}*"
 
@@ -114,4 +114,3 @@ def _write_report(
         encoding="utf-8",
         newline="\n",
     )
-

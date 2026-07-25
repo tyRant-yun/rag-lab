@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Self
+
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
 class BlockType(str, Enum):
@@ -15,19 +18,30 @@ class BlockType(str, Enum):
     EQUATION = "equation"
 
 
-@dataclass(frozen=True, slots=True)
-class NormalizedBlock:
+class NormalizedBlock(BaseModel):
+    model_config = ConfigDict(
+        frozen=True,
+        strict=True,
+        extra="forbid",
+    )
+
+    block_id: str
     document_id: str
     text: str
-    block_type: BlockType
-    heading_path: tuple[str, ...]
+    block_type: str
+    heading_path: list[str]
     page_start: int
     page_end: int
     ordinal: int
     source_path: str
+    image_path: str | None
     normalization_version: str
 
-    def __post_init__(self) -> None:
+    @model_validator(mode="after")
+    def validate_contract(self) -> Self:
+        if not self.block_id.strip():
+            raise ValueError("block_id cannot be empty")
+
         if not self.document_id.strip():
             raise ValueError("document_id cannot be empty")
 
@@ -68,11 +82,22 @@ class NormalizedBlock:
                 "normalization_version cannot be empty"
             )
 
+        valid_block_types = {
+            member.value
+            for member in BlockType
+        }
+
+        if self.block_type not in valid_block_types:
+            raise ValueError(
+                f"unsupported block_type: "
+                f"{self.block_type}"
+            )
+
         if (
             self.block_type
             in {
-                BlockType.DOCUMENT_TITLE,
-                BlockType.SECTION_HEADING,
+                BlockType.DOCUMENT_TITLE.value,
+                BlockType.SECTION_HEADING.value,
             }
             and self.heading_path[-1] != self.text
         ):
@@ -81,20 +106,10 @@ class NormalizedBlock:
                 "heading_path with their text"
             )
 
+        return self
+
     def to_dict(self) -> dict[str, object]:
-        return {
-            "document_id": self.document_id,
-            "text": self.text,
-            "block_type": self.block_type.value,
-            "heading_path": list(self.heading_path),
-            "page_start": self.page_start,
-            "page_end": self.page_end,
-            "ordinal": self.ordinal,
-            "source_path": self.source_path,
-            "normalization_version": (
-                self.normalization_version
-            ),
-        }
+        return self.model_dump(mode="json")
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,4 +165,3 @@ class NormalizationReport:
 class NormalizationResult:
     blocks: tuple[NormalizedBlock, ...]
     report: NormalizationReport
-

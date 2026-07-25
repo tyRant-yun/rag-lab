@@ -177,14 +177,27 @@ def normalize_docling_document(
 
     normalized_blocks = tuple(
         NormalizedBlock(
+            block_id=_compute_block_id(
+                document_id=document_id,
+                candidate=candidate,
+                ordinal=index,
+                normalization_version=(
+                    normalization_version
+                ),
+            ),
             document_id=document_id,
             text=candidate.text,
-            block_type=candidate.block_type,
-            heading_path=candidate.heading_path,
+            block_type=(
+                candidate.block_type.value
+            ),
+            heading_path=list(
+                candidate.heading_path
+            ),
             page_start=candidate.page_start,
             page_end=candidate.page_end,
             ordinal=index,
             source_path=source_path_text,
+            image_path=None,
             normalization_version=(
                 normalization_version
             ),
@@ -263,6 +276,38 @@ def normalize_docling_document(
         blocks=normalized_blocks,
         report=report,
     )
+
+
+def _compute_block_id(
+    *,
+    document_id: str,
+    candidate: _CandidateBlock,
+    ordinal: int,
+    normalization_version: str,
+) -> str:
+    digest = hashlib.sha256()
+    parts = (
+        document_id,
+        normalization_version,
+        str(ordinal),
+        str(candidate.page_start),
+        str(candidate.page_end),
+        candidate.block_type.value,
+        "\n".join(candidate.heading_path),
+        candidate.text,
+    )
+
+    for part in parts:
+        encoded = part.encode("utf-8")
+        digest.update(
+            len(encoded).to_bytes(
+                8,
+                byteorder="big",
+            )
+        )
+        digest.update(encoded)
+
+    return f"sha256:{digest.hexdigest()}"
 
 
 def _extract_raw_blocks(
