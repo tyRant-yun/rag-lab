@@ -1,0 +1,98 @@
+from __future__ import annotations
+
+from typing import Self
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    model_validator,
+)
+
+
+class SearchFilters(BaseModel):
+    """Storage-neutral constraints applied to retrieval."""
+
+    model_config = ConfigDict(
+        frozen=True,
+        strict=True,
+        extra="forbid",
+    )
+
+    document_ids: list[str] | None = None
+    heading_prefix: list[str] | None = None
+
+    page_start: int | None = None
+    page_end: int | None = None
+
+    @model_validator(mode="after")
+    def validate_contract(self) -> Self:
+        if self.document_ids is not None:
+            if not self.document_ids:
+                raise ValueError(
+                    "document_ids cannot be empty"
+                )
+
+            if any(
+                not document_id.strip()
+                for document_id
+                in self.document_ids
+            ):
+                raise ValueError(
+                    "document_ids entries cannot "
+                    "be empty"
+                )
+
+            if len(set(self.document_ids)) != len(
+                self.document_ids
+            ):
+                raise ValueError(
+                    "document_ids cannot contain "
+                    "duplicates"
+                )
+
+        if self.heading_prefix is not None:
+            if not self.heading_prefix:
+                raise ValueError(
+                    "heading_prefix cannot be empty"
+                )
+
+            if any(
+                not heading.strip()
+                for heading
+                in self.heading_prefix
+            ):
+                raise ValueError(
+                    "heading_prefix entries cannot "
+                    "be empty"
+                )
+
+        if (
+            self.page_start is not None
+            and self.page_start < 1
+        ):
+            raise ValueError(
+                "page_start must be at least 1"
+            )
+
+        if (
+            self.page_end is not None
+            and self.page_end < 1
+        ):
+            raise ValueError(
+                "page_end must be at least 1"
+            )
+
+        if (
+            self.page_start is not None
+            and self.page_end is not None
+            and self.page_end < self.page_start
+        ):
+            raise ValueError(
+                "page_end must not precede "
+                "page_start"
+            )
+
+        return self
+
+    def to_dict(self) -> dict[str, object]:
+        return self.model_dump(mode="json")
