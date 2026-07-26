@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import math
 from typing import Self
 
 from pydantic import (
     BaseModel,
     ConfigDict,
     model_validator,
+)
+
+from rag_lab.contracts.chunks import (
+    KnowledgeChunk,
 )
 
 
@@ -90,6 +95,43 @@ class SearchFilters(BaseModel):
             raise ValueError(
                 "page_end must not precede "
                 "page_start"
+            )
+
+        return self
+
+    def to_dict(self) -> dict[str, object]:
+        return self.model_dump(mode="json")
+
+
+class SearchHit(BaseModel):
+    """One ranked source-grounded retrieval result."""
+
+    model_config = ConfigDict(
+        frozen=True,
+        strict=True,
+        extra="forbid",
+    )
+
+    chunk: KnowledgeChunk
+    score: float
+    rank: int
+    retriever: str
+
+    @model_validator(mode="after")
+    def validate_contract(self) -> Self:
+        if not math.isfinite(self.score):
+            raise ValueError(
+                "score must be finite"
+            )
+
+        if self.rank < 1:
+            raise ValueError(
+                "rank must be at least 1"
+            )
+
+        if not self.retriever.strip():
+            raise ValueError(
+                "retriever cannot be empty"
             )
 
         return self
