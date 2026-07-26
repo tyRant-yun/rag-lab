@@ -97,6 +97,23 @@ def test_blank_query_returns_zero_scores():
     )
 
 
+def test_score_terms_matches_score_query():
+    index = BM25Index(
+        chunks=make_chunks(),
+        analyzer=make_analyzer(),
+    )
+
+    query_terms = index.analyze_query(
+        "TCP 拥塞控制"
+    )
+
+    assert index.score_terms(
+        query_terms
+    ) == index.score_query(
+        "TCP 拥塞控制"
+    )
+
+
 def test_rejects_empty_chunk_collection():
     with pytest.raises(
         ValueError,

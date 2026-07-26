@@ -88,10 +88,20 @@ class BM25Index:
         self,
         query: str,
     ) -> tuple[float, ...]:
-        query_terms = self._analyzer.analyze(
-            query
-        )
+        query_terms = self.analyze_query(query)
 
+        return self.score_terms(query_terms)
+
+    def analyze_query(
+        self,
+        query: str,
+    ) -> tuple[str, ...]:
+        return self._analyzer.analyze(query)
+
+    def score_terms(
+        self,
+        query_terms: tuple[str, ...],
+    ) -> tuple[float, ...]:
         if not query_terms:
             return tuple(
                 0.0
