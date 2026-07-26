@@ -6,6 +6,7 @@ from rag_lab.contracts.chunks import KnowledgeChunk
 from rag_lab.contracts.search import (
     SearchFilters,
     SearchHit,
+    SearchResult,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "NormalizedBlock",
     "SearchFilters",
     "SearchHit",
+    "SearchResult",
 ]

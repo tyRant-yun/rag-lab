@@ -5,6 +5,7 @@ from rag_lab.contracts import (
     KnowledgeChunk,
     SearchFilters,
     SearchHit,
+    SearchResult,
 )
 
 
@@ -148,9 +149,13 @@ def test_unknown_fields_are_rejected():
             strict=True,
         )
 
-def build_chunk() -> KnowledgeChunk:
+def build_chunk(
+    *,
+    chunk_id: str = "sha256:chunk",
+    ordinal: int = 1,
+) -> KnowledgeChunk:
     return KnowledgeChunk(
-        chunk_id="sha256:chunk",
+        chunk_id=chunk_id,
         document_id="sha256:document",
         content="端系统通过通信链路连接。",
         index_text=(
@@ -162,14 +167,31 @@ def build_chunk() -> KnowledgeChunk:
         ],
         page_start=19,
         page_end=19,
-        ordinal=1,
+        ordinal=ordinal,
         block_ids=[
-            "sha256:block",
+            f"sha256:block-{ordinal}",
         ],
         source_path="D:/source.pdf",
-        content_hash="sha256:content",
+        content_hash=(
+            f"sha256:content-{ordinal}"
+        ),
         normalization_version="1.1.0",
         chunking_version="1.1.0",
+    )
+
+def build_hit(
+    *,
+    chunk_id: str = "sha256:chunk",
+    rank: int = 1,
+) -> SearchHit:
+    return SearchHit(
+        chunk=build_chunk(
+            chunk_id=chunk_id,
+            ordinal=rank,
+        ),
+        score=1.0,
+        rank=rank,
+        retriever="bm25",
     )
 
 def test_search_hit_serializes_contract():
@@ -268,3 +290,228 @@ def test_search_hit_is_publicly_exported():
     import rag_lab.contracts as contracts
 
     assert "SearchHit" in contracts.__all__
+
+def test_empty_search_result_is_valid():
+    result = SearchResult(
+        query="不存在的问题",
+        hits=[],
+        candidate_count=0,
+        elapsed_ms=1.5,
+        retriever="bm25",
+        index_version="1.0.0",
+    )
+
+    assert result.to_dict() == {
+        "query": "不存在的问题",
+        "hits": [],
+        "candidate_count": 0,
+        "elapsed_ms": 1.5,
+        "retriever": "bm25",
+        "index_version": "1.0.0",
+    }
+
+
+def test_search_result_serializes_ranked_hits():
+    first = build_hit(
+        chunk_id="sha256:chunk-1",
+        rank=1,
+    )
+    second = build_hit(
+        chunk_id="sha256:chunk-2",
+        rank=2,
+    )
+
+    result = SearchResult(
+        query="什么是端系统？",
+        hits=[first, second],
+        candidate_count=8,
+        elapsed_ms=2.5,
+        retriever="bm25",
+        index_version="1.0.0",
+    )
+
+    assert result.hits == [first, second]
+    assert result.candidate_count == 8
+    assert result.to_dict()["hits"] == [
+        first.to_dict(),
+        second.to_dict(),
+    ]
+
+
+def test_search_result_rejects_empty_query():
+    with pytest.raises(
+        ValidationError,
+        match="query cannot be empty",
+    ):
+        SearchResult(
+            query=" ",
+            hits=[],
+            candidate_count=0,
+            elapsed_ms=1.0,
+            retriever="bm25",
+            index_version="1.0.0",
+        )
+
+
+def test_candidate_count_cannot_be_negative():
+    with pytest.raises(
+        ValidationError,
+        match="candidate_count cannot be negative",
+    ):
+        SearchResult(
+            query="测试",
+            hits=[],
+            candidate_count=-1,
+            elapsed_ms=1.0,
+            retriever="bm25",
+            index_version="1.0.0",
+        )
+
+
+def test_candidate_count_cannot_be_less_than_hits():
+    with pytest.raises(
+        ValidationError,
+        match="candidate_count cannot be less",
+    ):
+        SearchResult(
+            query="测试",
+            hits=[build_hit()],
+            candidate_count=0,
+            elapsed_ms=1.0,
+            retriever="bm25",
+            index_version="1.0.0",
+        )
+
+
+@pytest.mark.parametrize(
+    "elapsed_ms",
+    [
+        -1.0,
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+    ],
+)
+def test_search_result_rejects_invalid_elapsed_time(
+    elapsed_ms: float,
+):
+    with pytest.raises(
+        ValidationError,
+        match="elapsed_ms must be finite",
+    ):
+        SearchResult(
+            query="测试",
+            hits=[],
+            candidate_count=0,
+            elapsed_ms=elapsed_ms,
+            retriever="bm25",
+            index_version="1.0.0",
+        )
+
+
+def test_search_result_rejects_empty_retriever():
+    with pytest.raises(
+        ValidationError,
+        match="retriever cannot be empty",
+    ):
+        SearchResult(
+            query="测试",
+            hits=[],
+            candidate_count=0,
+            elapsed_ms=1.0,
+            retriever=" ",
+            index_version="1.0.0",
+        )
+
+
+def test_search_result_rejects_empty_index_version():
+    with pytest.raises(
+        ValidationError,
+        match="index_version cannot be empty",
+    ):
+        SearchResult(
+            query="测试",
+            hits=[],
+            candidate_count=0,
+            elapsed_ms=1.0,
+            retriever="bm25",
+            index_version=" ",
+        )
+
+
+def test_search_result_rejects_duplicate_chunks():
+    first = build_hit(
+        chunk_id="sha256:same",
+        rank=1,
+    )
+    second = build_hit(
+        chunk_id="sha256:same",
+        rank=2,
+    )
+
+    with pytest.raises(
+        ValidationError,
+        match="duplicate chunk IDs",
+    ):
+        SearchResult(
+            query="测试",
+            hits=[first, second],
+            candidate_count=2,
+            elapsed_ms=1.0,
+            retriever="bm25",
+            index_version="1.0.0",
+        )
+
+
+def test_search_result_rejects_rank_gap():
+    first = build_hit(
+        chunk_id="sha256:chunk-1",
+        rank=1,
+    )
+    third = build_hit(
+        chunk_id="sha256:chunk-3",
+        rank=3,
+    )
+
+    with pytest.raises(
+        ValidationError,
+        match="hit ranks must be contiguous",
+    ):
+        SearchResult(
+            query="测试",
+            hits=[first, third],
+            candidate_count=3,
+            elapsed_ms=1.0,
+            retriever="bm25",
+            index_version="1.0.0",
+        )
+
+
+def test_search_result_rejects_out_of_order_hits():
+    first = build_hit(
+        chunk_id="sha256:chunk-1",
+        rank=1,
+    )
+    second = build_hit(
+        chunk_id="sha256:chunk-2",
+        rank=2,
+    )
+
+    with pytest.raises(
+        ValidationError,
+        match="hit ranks must be contiguous",
+    ):
+        SearchResult(
+            query="测试",
+            hits=[second, first],
+            candidate_count=2,
+            elapsed_ms=1.0,
+            retriever="bm25",
+            index_version="1.0.0",
+        )
+
+
+def test_search_result_is_publicly_exported():
+    import rag_lab.contracts as contracts
+
+    assert "SearchResult" in contracts.__all__

@@ -138,3 +138,88 @@ class SearchHit(BaseModel):
 
     def to_dict(self) -> dict[str, object]:
         return self.model_dump(mode="json")
+
+class SearchResult(BaseModel):
+    """Complete output from one retrieval operation."""
+
+    model_config = ConfigDict(
+        frozen=True,
+        strict=True,
+        extra="forbid",
+    )
+
+    query: str
+    hits: list[SearchHit]
+
+    candidate_count: int
+    elapsed_ms: float
+
+    retriever: str
+    index_version: str
+
+    @model_validator(mode="after")
+    def validate_contract(self) -> Self:
+        if not self.query.strip():
+            raise ValueError(
+                "query cannot be empty"
+            )
+
+        if self.candidate_count < 0:
+            raise ValueError(
+                "candidate_count cannot be negative"
+            )
+
+        if self.candidate_count < len(self.hits):
+            raise ValueError(
+                "candidate_count cannot be less "
+                "than hit count"
+            )
+
+        if (
+            not math.isfinite(self.elapsed_ms)
+            or self.elapsed_ms < 0
+        ):
+            raise ValueError(
+                "elapsed_ms must be finite and "
+                "non-negative"
+            )
+
+        if not self.retriever.strip():
+            raise ValueError(
+                "retriever cannot be empty"
+            )
+
+        if not self.index_version.strip():
+            raise ValueError(
+                "index_version cannot be empty"
+            )
+
+        chunk_ids = [
+            hit.chunk.chunk_id
+            for hit in self.hits
+        ]
+
+        if len(set(chunk_ids)) != len(chunk_ids):
+            raise ValueError(
+                "hits cannot contain duplicate "
+                "chunk IDs"
+            )
+
+        expected_ranks = list(
+            range(1, len(self.hits) + 1)
+        )
+        actual_ranks = [
+            hit.rank
+            for hit in self.hits
+        ]
+
+        if actual_ranks != expected_ranks:
+            raise ValueError(
+                "hit ranks must be contiguous "
+                "and ordered from 1"
+            )
+
+        return self
+
+    def to_dict(self) -> dict[str, object]:
+        return self.model_dump(mode="json")
