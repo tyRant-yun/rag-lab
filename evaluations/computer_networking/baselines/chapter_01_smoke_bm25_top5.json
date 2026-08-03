@@ -1,0 +1,147 @@
+{
+  "dataset_id": "chapter-01-smoke",
+  "retriever": "bm25",
+  "index_version": "bm25-v1:c62e52cbf14493be741aae5a16c72f00ef06ce0a47e316d8f842a8457e513ee3",
+  "top_k": 5,
+  "case_results": [
+    {
+      "case_id": "internet-definition",
+      "query": "什么是因特网",
+      "relevant_chunk_ids": [
+        "sha256:44aaa7b91ad4115eb466f9566942db2668648dfed3c2175a728c8838c4434bad",
+        "sha256:5e8fbdb98058f4edf54291c598774efcf8d4f72e66e27d530a4cd8dae0c1ecef"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:c520f6df79e9c087db40d101e980a8e8ea80b827baa13375749e4eb5bde2564c",
+        "sha256:44aaa7b91ad4115eb466f9566942db2668648dfed3c2175a728c8838c4434bad",
+        "sha256:d347b5524270ecfaffce90cbb00a57e180029ae603264a6eca838e3454410ddb",
+        "sha256:61db585dcdb48ea3a8ed3a11c1efbb19a8d885dff6b3b7440d79003fc805562c",
+        "sha256:5e8fbdb98058f4edf54291c598774efcf8d4f72e66e27d530a4cd8dae0c1ecef"
+      ],
+      "top_k": 5,
+      "first_relevant_rank": 2,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.5
+    },
+    {
+      "case_id": "end-systems",
+      "query": "什么是端系统",
+      "relevant_chunk_ids": [
+        "sha256:5e8fbdb98058f4edf54291c598774efcf8d4f72e66e27d530a4cd8dae0c1ecef"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:5e8fbdb98058f4edf54291c598774efcf8d4f72e66e27d530a4cd8dae0c1ecef",
+        "sha256:d889bb2e2dc3c586ebf57b312a84deea669612e5dbfd70314fdc02a208e0b449",
+        "sha256:61db585dcdb48ea3a8ed3a11c1efbb19a8d885dff6b3b7440d79003fc805562c",
+        "sha256:4ecab02e7617298be1bc36ae4fa2a30dae468f304b5f2484808d40102ec641df",
+        "sha256:c520f6df79e9c087db40d101e980a8e8ea80b827baa13375749e4eb5bde2564c"
+      ],
+      "top_k": 5,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "packet-switching",
+      "query": "什么是分组交换网络",
+      "relevant_chunk_ids": [
+        "sha256:d889bb2e2dc3c586ebf57b312a84deea669612e5dbfd70314fdc02a208e0b449"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:c520f6df79e9c087db40d101e980a8e8ea80b827baa13375749e4eb5bde2564c",
+        "sha256:d889bb2e2dc3c586ebf57b312a84deea669612e5dbfd70314fdc02a208e0b449",
+        "sha256:5e8fbdb98058f4edf54291c598774efcf8d4f72e66e27d530a4cd8dae0c1ecef",
+        "sha256:61db585dcdb48ea3a8ed3a11c1efbb19a8d885dff6b3b7440d79003fc805562c",
+        "sha256:d347b5524270ecfaffce90cbb00a57e180029ae603264a6eca838e3454410ddb"
+      ],
+      "top_k": 5,
+      "first_relevant_rank": 2,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.5
+    },
+    {
+      "case_id": "tcp-ip",
+      "query": "TCP/IP 协议是什么",
+      "relevant_chunk_ids": [
+        "sha256:61db585dcdb48ea3a8ed3a11c1efbb19a8d885dff6b3b7440d79003fc805562c"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:61db585dcdb48ea3a8ed3a11c1efbb19a8d885dff6b3b7440d79003fc805562c",
+        "sha256:d889bb2e2dc3c586ebf57b312a84deea669612e5dbfd70314fdc02a208e0b449",
+        "sha256:c520f6df79e9c087db40d101e980a8e8ea80b827baa13375749e4eb5bde2564c",
+        "sha256:d347b5524270ecfaffce90cbb00a57e180029ae603264a6eca838e3454410ddb",
+        "sha256:44aaa7b91ad4115eb466f9566942db2668648dfed3c2175a728c8838c4434bad"
+      ],
+      "top_k": 5,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "internet-standards",
+      "query": "RFC 和 IETF 有什么作用",
+      "relevant_chunk_ids": [
+        "sha256:61db585dcdb48ea3a8ed3a11c1efbb19a8d885dff6b3b7440d79003fc805562c"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:61db585dcdb48ea3a8ed3a11c1efbb19a8d885dff6b3b7440d79003fc805562c",
+        "sha256:d347b5524270ecfaffce90cbb00a57e180029ae603264a6eca838e3454410ddb",
+        "sha256:44aaa7b91ad4115eb466f9566942db2668648dfed3c2175a728c8838c4434bad",
+        "sha256:c520f6df79e9c087db40d101e980a8e8ea80b827baa13375749e4eb5bde2564c",
+        "sha256:4ecab02e7617298be1bc36ae4fa2a30dae468f304b5f2484808d40102ec641df"
+      ],
+      "top_k": 5,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "distributed-application-services",
+      "query": "因特网如何为分布式应用提供服务",
+      "relevant_chunk_ids": [
+        "sha256:4ecab02e7617298be1bc36ae4fa2a30dae468f304b5f2484808d40102ec641df",
+        "sha256:c520f6df79e9c087db40d101e980a8e8ea80b827baa13375749e4eb5bde2564c"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:c520f6df79e9c087db40d101e980a8e8ea80b827baa13375749e4eb5bde2564c",
+        "sha256:4ecab02e7617298be1bc36ae4fa2a30dae468f304b5f2484808d40102ec641df",
+        "sha256:44aaa7b91ad4115eb466f9566942db2668648dfed3c2175a728c8838c4434bad",
+        "sha256:d889bb2e2dc3c586ebf57b312a84deea669612e5dbfd70314fdc02a208e0b449",
+        "sha256:61db585dcdb48ea3a8ed3a11c1efbb19a8d885dff6b3b7440d79003fc805562c"
+      ],
+      "top_k": 5,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "protocol-definition",
+      "query": "什么是协议",
+      "relevant_chunk_ids": [
+        "sha256:d347b5524270ecfaffce90cbb00a57e180029ae603264a6eca838e3454410ddb"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:d347b5524270ecfaffce90cbb00a57e180029ae603264a6eca838e3454410ddb",
+        "sha256:61db585dcdb48ea3a8ed3a11c1efbb19a8d885dff6b3b7440d79003fc805562c",
+        "sha256:44aaa7b91ad4115eb466f9566942db2668648dfed3c2175a728c8838c4434bad",
+        "sha256:d889bb2e2dc3c586ebf57b312a84deea669612e5dbfd70314fdc02a208e0b449",
+        "sha256:c520f6df79e9c087db40d101e980a8e8ea80b827baa13375749e4eb5bde2564c"
+      ],
+      "top_k": 5,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    }
+  ],
+  "case_count": 7,
+  "hit_rate_at_k": 1.0,
+  "mean_recall_at_k": 1.0,
+  "mrr": 0.8571428571428571
+}

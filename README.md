@@ -6,9 +6,13 @@ RAG Lab 是一个本地知识库项目，用于把源文档转换成可追踪、
 
 1. Docling 文档规范化；
 2. 结构感知的知识切块；
-3. 确定性的 JSONL、Markdown 和质量报告输出。
+3. 确定性的 JSONL、Markdown 和质量报告输出；
+4. 中文词法分析；
+5. 内存 BM25 索引、过滤和检索；
+6. 可复用的检索评估模型、评估器和 BM25 CLI。
 
-向量存储、Embedding、检索、Agent 和 API 集成属于后续阶段。
+Ollama Embedding、Qdrant、混合检索、检索 API 和 Agent
+集成属于后续阶段。
 
 ## 整体流程
 
@@ -20,8 +24,16 @@ Docling JSON
 NormalizedBlock / blocks.jsonl
   ↓ Chunker
 KnowledgeChunk / chunks.jsonl
+  ↓ LexicalAnalyzer
+中文词项
+  ↓ BM25Index
+内存词法索引
+  ↓ BM25Retriever
+SearchResult
+  ↓ RetrievalEvaluator
+BM25 基线报告
   ↓ 后续阶段
-索引 → 检索 → RAG → Agent
+Embedding → Qdrant → 混合检索 → RAG → Agent
 ```
 
 Markdown 文件只用于人工检查，JSONL 文件才是下游机器接口。
@@ -31,7 +43,10 @@ Markdown 文件只用于人工检查，JSONL 文件才是下游机器接口。
 - **Docling 转换层**：负责 PDF 解析、OCR、版面识别、表格、图片以及 Docling JSON 输出。
 - **Normalizer**：负责阅读顺序、文本清理、块类型、标题路径、页码来源和图片引用。
 - **Chunker**：负责跨页段落连接、语义边界、长度控制、来源聚合和稳定 Chunk ID。
-- **Indexer/Retriever**：后续负责中文分词、Embedding、向量存储、词法检索、混合排序和过滤。
+- **LexicalAnalyzer**：负责 Unicode 规范化、中文分词、技术词、停用词和领域词处理。
+- **BM25Index/Retriever**：负责内存词法索引、BM25 评分、元数据过滤和稳定排名。
+- **Evaluation**：负责标注查询读取、Hit@K、Recall@K、MRR 和不同 Retriever 的统一比较。
+- **Dense/Hybrid Retriever**：后续负责 Embedding、Qdrant 和混合排序。
 - **Agent**：后续通过稳定的检索工具使用知识库。
 
 Chunker 只读取 `blocks.jsonl`，不读取 PDF、Docling JSON 或人工审阅 Markdown。
@@ -42,20 +57,35 @@ Chunker 只读取 `blocks.jsonl`，不读取 PDF、Docling JSON 或人工审阅 
 src/rag_lab/
 ├── contracts/
 │   ├── blocks.py
-│   └── chunks.py
+│   ├── chunks.py
+│   └── search.py
 ├── normalization/
 │   ├── cli.py
 │   ├── models.py
 │   ├── normalizer.py
 │   └── serialization.py
-└── chunking/
-    ├── cli.py
+├── chunking/
+│   ├── cli.py
+│   ├── models.py
+│   ├── chunker.py
+│   └── serialization.py
+├── retrieval/
+│   ├── serialization.py
+│   ├── lexical/
+│   │   └── analyzer.py
+│   └── bm25/
+│       ├── index.py
+│       ├── retriever.py
+│       └── cli.py
+└── evaluation/
     ├── models.py
-    ├── chunker.py
-    └── serialization.py
+    ├── serialization.py
+    ├── evaluator.py
+    └── bm25_cli.py
 ```
 
-`rag_lab.contracts` 存放共享产品契约，导入它不会加载 Normalizer 或 Chunker 的具体实现。
+`rag_lab.contracts` 存放共享产品契约，导入它不会加载 Normalizer、
+Chunker 或 Retriever 的具体实现。
 
 ## NormalizedBlock 契约
 
@@ -227,6 +257,50 @@ chunked/
 - `chunks.md`：人工检查 Chunk 内容和来源；
 - `chunking-report.json`：Chunker 处理统计。
 
+## 运行 BM25 检索
+
+以下命令中的 `path\to\...` 是占位符，必须替换成实际文件路径。
+
+```powershell
+search-bm25 `
+  --chunks "path\to\chunks.jsonl" `
+  --query "什么是协议" `
+  --top-k 5
+```
+
+使用 `--json` 输出完整 `SearchResult`。可以重复传入
+`--document-id`、`--heading`、`--user-word` 和 `--stopword`，
+并使用 `--page-start`、`--page-end` 过滤来源页码。
+
+当前 BM25 索引只驻留内存，每次 CLI 调用都会重新读取 Chunk、
+执行词法分析并构建索引。
+
+## 运行 BM25 评估
+
+以下命令中的 `path\to\...` 同样是占位符，必须替换成实际文件路径。
+
+```powershell
+evaluate-bm25 `
+  --chunks "path\to\chunks.jsonl" `
+  --cases "path\to\evaluation-cases.jsonl" `
+  --dataset-id "chapter-01-smoke" `
+  --top-k 5
+```
+
+在当前 worktree 根目录下，可以直接运行本地 smoke 基线：
+
+```powershell
+evaluate-bm25 `
+  --chunks "D:\rag-lab\computer-networking\output\chapter-01-smoke\baseline-v1.1\chunked-max1200-overlap120\chunks.jsonl" `
+  --cases ".\evaluations\computer_networking\chapter_01_smoke.jsonl" `
+  --dataset-id "chapter-01-smoke" `
+  --top-k 5
+```
+
+使用 `--json` 输出完整 `RetrievalEvaluationReport`。评估器计算
+Hit@K、Mean Recall@K 和 MRR，并验证标注的相关 Chunk ID 是否
+存在于当前语料。
+
 ## 质量报告
 
 接受 Normalizer 结果前，应检查 `normalization-report.json`，尤其是：
@@ -267,8 +341,12 @@ overlap_char_count
 - overlap 是不超过目标字符数的 best-effort 结果，不保证每个
   Chunk 都达到目标值。
 - overlap 不跨 `heading_path`，也不会截断 table、code、equation。
-- 一次 CLI 调用只处理一个文档。
-- 尚未实现增量索引、删除、Embedding、Qdrant、检索和 Agent。
+- Normalizer 和 Chunker 的一次 CLI 调用只处理一个文档。
+- BM25 索引当前只驻留内存，每次进程启动都会重新构建。
+- 尚未实现增量索引、删除、持久化词法索引、Embedding、Qdrant、
+  混合检索、检索 API 和 Agent。
+- 当前评估集只有第 19–23 页的 8 个 Chunk 和 7 个查询，只能作为
+  流程冒烟基线，不能代表完整第一章的检索质量。
 
 ## 真实样本回归
 
@@ -310,14 +388,40 @@ overlap 字符总数：266
 
 本地 PDF、Docling 产物、NormalizedBlock 和 Chunk 产物均不提交到 Git。
 
+### BM25 冒烟基线
+
+使用相同的 8 个 Chunk 和 7 个标注查询，以 `top_k=5` 运行：
+
+```text
+Hit@5：1.000000
+Mean Recall@5：1.000000
+MRR：0.857143
+```
+
+其中 `internet-definition` 和 `packet-switching` 的首个相关结果
+位于第 2 名，其余 5 个查询的首个相关结果位于第 1 名。
+
+基线报告保存在：
+
+```text
+evaluations/computer_networking/baselines/
+chapter_01_smoke_bm25_top5.json
+```
+
+该结果只用于验证评估链路和记录词法检索起点，不应解读为完整
+知识库上的质量结论。
+
 ## 后续计划
 
-下一阶段将依次实现：
+已经完成：
 
 1. 中文词法处理；
-2. BM25 检索；
-3. Ollama Embedding；
-4. Qdrant 向量存储；
-5. BM25 与向量混合检索；
-6. 检索 API；
-7. Agent 工具接入。
+2. BM25 检索与基线评估。
+
+下一阶段依次实现：
+
+1. Ollama Embedding；
+2. Qdrant 向量存储；
+3. BM25 与向量混合检索；
+4. 检索 API；
+5. Agent 工具接入。
