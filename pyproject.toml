@@ -17,6 +17,7 @@ dependencies = [
 normalize-docling = "rag_lab.normalization.cli:main"
 chunk-normalized = "rag_lab.chunking.cli:main"
 search-bm25 = "rag_lab.retrieval.bm25.cli:main"
+evaluate-bm25 = "rag_lab.evaluation.bm25_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
