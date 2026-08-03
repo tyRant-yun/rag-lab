@@ -1,3 +1,6 @@
+from rag_lab.evaluation.evaluator import (
+    RetrievalEvaluator,
+)
 from rag_lab.evaluation.models import (
     RetrievalCaseResult,
     RetrievalEvaluationCase,
@@ -11,5 +14,6 @@ __all__ = [
     "RetrievalCaseResult",
     "RetrievalEvaluationCase",
     "RetrievalEvaluationReport",
+    "RetrievalEvaluator",
     "read_retrieval_evaluation_cases_jsonl",
 ]
