@@ -13,6 +13,7 @@ dependencies = [
     "rank-bm25>=0.2.2,<0.3",
     "httpx>=0.27,<1",
     "ollama>=0.6.2,<0.7",
+    "qdrant-client>=1.18,<2",
 ]
 
 [project.scripts]
@@ -21,6 +22,7 @@ chunk-normalized = "rag_lab.chunking.cli:main"
 search-bm25 = "rag_lab.retrieval.bm25.cli:main"
 evaluate-bm25 = "rag_lab.evaluation.bm25_cli:main"
 embed-chunks = "rag_lab.embeddings.cli:main"
+index-qdrant = "rag_lab.vector_store.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
