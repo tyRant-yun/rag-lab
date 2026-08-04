@@ -9,15 +9,13 @@ RAG Lab 是一个本地知识库项目，用于把源文档转换成可追踪、
 3. 确定性的 JSONL、Markdown 和质量报告输出；
 4. 中文词法分析；
 5. 内存 BM25 索引、过滤和检索；
-6. 可复用的检索评估模型、评估器和 BM25 CLI。
-7. Ollama 安装及 ollama pull；
-8. embed-chunks 示例；
-9. 8 个 Chunk、2 个 batch、1024 维；
-10. 向量模长范围；
+6. 可复用的检索评估模型、评估器和 BM25 CLI；
+7. 存储无关的 Embedding 契约和 Provider 接口；
+8. Ollama Embedding Provider 与分批验证 CLI；
+9. BM25 和 Embedding 真实样本基线报告。
 
-明确报告不包含原始向量；
-下一阶段是 Qdrant。
-
+Qdrant、Dense Retriever、混合检索、检索 API 和 Agent
+集成属于后续阶段。Embedding 基线只记录统计信息，不保存原始向量。
 
 ## 整体流程
 
@@ -29,16 +27,13 @@ Docling JSON
 NormalizedBlock / blocks.jsonl
   ↓ Chunker
 KnowledgeChunk / chunks.jsonl
-  ↓ LexicalAnalyzer
-中文词项
-  ↓ BM25Index
-内存词法索引
-  ↓ BM25Retriever
-SearchResult
-  ↓ RetrievalEvaluator
-BM25 基线报告
-  ↓ 后续阶段
-Embedding → Qdrant → 混合检索 → RAG → Agent
+  ├─ LexicalAnalyzer → BM25Index → BM25Retriever
+  │    ↓
+  │  SearchResult → RetrievalEvaluator → BM25 基线报告
+  │
+  └─ OllamaEmbeddingProvider → EmbeddingRunReport
+       ↓ 后续阶段
+     Qdrant → Dense/Hybrid Retriever → RAG → Agent
 ```
 
 Markdown 文件只用于人工检查，JSONL 文件才是下游机器接口。
@@ -51,7 +46,9 @@ Markdown 文件只用于人工检查，JSONL 文件才是下游机器接口。
 - **LexicalAnalyzer**：负责 Unicode 规范化、中文分词、技术词、停用词和领域词处理。
 - **BM25Index/Retriever**：负责内存词法索引、BM25 评分、元数据过滤和稳定排名。
 - **Evaluation**：负责标注查询读取、Hit@K、Recall@K、MRR 和不同 Retriever 的统一比较。
-- **Dense/Hybrid Retriever**：后续负责 Embedding、Qdrant 和混合排序。
+- **EmbeddingProvider**：负责区分文档和查询的向量化策略，并校验模型返回的向量。
+- **Embedding CLI**：负责对 Chunk 分批向量化并输出不含原始向量的验收报告。
+- **Dense/Hybrid Retriever**：后续负责 Qdrant 向量检索和混合排序。
 - **Agent**：后续通过稳定的检索工具使用知识库。
 
 Chunker 只读取 `blocks.jsonl`，不读取 PDF、Docling JSON 或人工审阅 Markdown。
@@ -63,6 +60,7 @@ src/rag_lab/
 ├── contracts/
 │   ├── blocks.py
 │   ├── chunks.py
+│   ├── embeddings.py
 │   └── search.py
 ├── normalization/
 │   ├── cli.py
@@ -82,6 +80,10 @@ src/rag_lab/
 │       ├── index.py
 │       ├── retriever.py
 │       └── cli.py
+├── embeddings/
+│   ├── provider.py
+│   ├── ollama.py
+│   └── cli.py
 └── evaluation/
     ├── models.py
     ├── serialization.py
@@ -306,6 +308,40 @@ evaluate-bm25 `
 Hit@K、Mean Recall@K 和 MRR，并验证标注的相关 Chunk ID 是否
 存在于当前语料。
 
+## 运行 Ollama Embedding 验证
+
+先安装并启动 Ollama，然后下载当前基线模型：
+
+```powershell
+ollama pull qwen3-embedding:0.6b
+ollama list
+```
+
+以下命令读取 `KnowledgeChunk.index_text`，按批次生成向量并输出
+统计报告，不会把原始向量写入磁盘：
+
+```powershell
+embed-chunks `
+  --chunks "path\to\chunks.jsonl" `
+  --model "qwen3-embedding:0.6b" `
+  --dimensions 1024 `
+  --batch-size 8
+```
+
+在当前本地 smoke 样本上运行：
+
+```powershell
+embed-chunks `
+  --chunks "D:\rag-lab\computer-networking\output\chapter-01-smoke\baseline-v1.1\chunked-max1200-overlap120\chunks.jsonl" `
+  --model "qwen3-embedding:0.6b" `
+  --dimensions 1024 `
+  --batch-size 4
+```
+
+使用 `--json` 输出完整 `EmbeddingRunReport`。报告包含 Chunk、
+batch、向量数量、维度、Embedding 版本、耗时和向量模长范围，
+但不包含原始文本或向量值。
+
 ## 质量报告
 
 接受 Normalizer 结果前，应检查 `normalization-report.json`，尤其是：
@@ -348,7 +384,10 @@ overlap_char_count
 - overlap 不跨 `heading_path`，也不会截断 table、code、equation。
 - Normalizer 和 Chunker 的一次 CLI 调用只处理一个文档。
 - BM25 索引当前只驻留内存，每次进程启动都会重新构建。
-- 尚未实现增量索引、删除、持久化词法索引、Embedding、Qdrant、
+- Embedding 当前只完成生成与验证，尚未持久化或写入向量数据库。
+- `embedding_version` 记录模型标签、维度和查询指令哈希，但尚未
+  记录 Ollama 本地模型文件的完整 digest。
+- 尚未实现增量索引、删除、持久化词法索引、Qdrant、
   混合检索、检索 API 和 Agent。
 - 当前评估集只有第 19–23 页的 8 个 Chunk 和 7 个查询，只能作为
   流程冒烟基线，不能代表完整第一章的检索质量。
@@ -416,17 +455,42 @@ chapter_01_smoke_bm25_top5.json
 该结果只用于验证评估链路和记录词法检索起点，不应解读为完整
 知识库上的质量结论。
 
+### Ollama Embedding 冒烟基线
+
+使用相同的 8 个 Chunk、`qwen3-embedding:0.6b` 模型和 1024
+维输出，以 `batch_size=4` 运行：
+
+```text
+Chunk：8
+Batch：2
+向量：8
+维度：1024
+最小向量模长：0.9999997644812063
+最大向量模长：1.0000002457742503
+```
+
+基线报告保存在：
+
+```text
+evaluations/computer_networking/baselines/
+chapter_01_smoke_ollama_embedding_1024.json
+```
+
+该报告验证了 Chunk 数量、分批行为、输出维度和向量有效性。
+报告不包含原始向量，耗时只代表本次本地运行，不作为性能基线。
+
 ## 后续计划
 
 已经完成：
 
 1. 中文词法处理；
-2. BM25 检索与基线评估。
+2. BM25 检索与基线评估；
+3. Ollama Embedding、分批验证 CLI 与真实样本报告。
 
 下一阶段依次实现：
 
-1. Ollama Embedding；
-2. Qdrant 向量存储；
+1. Qdrant 向量存储；
+2. Dense Retriever 与基线评估；
 3. BM25 与向量混合检索；
 4. 检索 API；
 5. Agent 工具接入。

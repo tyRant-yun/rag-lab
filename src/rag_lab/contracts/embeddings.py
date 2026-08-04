@@ -133,6 +133,7 @@ class EmbeddingBatch(BaseModel):
     def to_dict(self) -> dict[str, object]:
         return self.model_dump(mode="json")
 
+
 class EmbeddingRunReport(BaseModel):
     """Summary of one complete Chunk embedding run."""
 
