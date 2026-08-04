@@ -3,6 +3,10 @@ from rag_lab.contracts.blocks import (
     NormalizedBlock,
 )
 from rag_lab.contracts.chunks import KnowledgeChunk
+from rag_lab.contracts.embeddings import (
+    EmbeddingBatch,
+    EmbeddingVector,
+)
 from rag_lab.contracts.search import (
     SearchFilters,
     SearchHit,
@@ -11,6 +15,8 @@ from rag_lab.contracts.search import (
 
 __all__ = [
     "BlockType",
+    "EmbeddingBatch",
+    "EmbeddingVector",
     "KnowledgeChunk",
     "NormalizedBlock",
     "SearchFilters",
