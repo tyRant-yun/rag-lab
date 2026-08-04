@@ -16,6 +16,11 @@ dependencies = [
     "qdrant-client>=1.18,<2",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<9",
+]
+
 [project.scripts]
 normalize-docling = "rag_lab.normalization.cli:main"
 chunk-normalized = "rag_lab.chunking.cli:main"

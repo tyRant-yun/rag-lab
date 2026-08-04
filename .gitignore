@@ -8,8 +8,13 @@ dist/
 build/
 
 # Local source documents and generated artifacts.
+computer-networking/
 input/
 output/
 raw/
 normalized/
 *.pdf
+
+# Local environment configuration.
+.env
+.env.*
