@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from rag_lab.contracts.embeddings import (
     EmbeddingBatch,
+    EmbeddingRunReport,
     EmbeddingVector,
 )
 
@@ -258,3 +259,72 @@ def test_embedding_batch_forbids_extra_fields():
         match="Extra inputs are not permitted",
     ):
         EmbeddingBatch.model_validate(data)
+
+def make_run_report_data() -> dict[str, object]:
+    return {
+        "provider": "ollama",
+        "model": "qwen3-embedding:0.6b",
+        "dimensions": 1024,
+        "embedding_version": (
+            "ollama:qwen3-embedding:0.6b:"
+            "dimensions-1024:query-v1-test"
+        ),
+        "chunk_count": 8,
+        "batch_count": 2,
+        "vector_count": 8,
+        "elapsed_ms": 1200.0,
+        "minimum_vector_norm": 0.999999,
+        "maximum_vector_norm": 1.000001,
+    }
+
+
+def test_embedding_run_report_serializes():
+    report = EmbeddingRunReport.model_validate(
+        make_run_report_data()
+    )
+
+    result = report.to_dict()
+
+    assert result["chunk_count"] == 8
+    assert result["batch_count"] == 2
+    assert result["vector_count"] == 8
+    assert result["dimensions"] == 1024
+
+
+def test_run_report_vector_count_must_match():
+    data = make_run_report_data()
+    data["vector_count"] = 7
+
+    with pytest.raises(
+        ValidationError,
+        match="vector_count must equal chunk_count",
+    ):
+        EmbeddingRunReport.model_validate(data)
+
+
+def test_run_report_batch_count_cannot_exceed_chunks():
+    data = make_run_report_data()
+    data["batch_count"] = 9
+
+    with pytest.raises(
+        ValidationError,
+        match=(
+            "batch_count cannot exceed chunk_count"
+        ),
+    ):
+        EmbeddingRunReport.model_validate(data)
+
+
+def test_run_report_norm_range_must_be_ordered():
+    data = make_run_report_data()
+    data["minimum_vector_norm"] = 1.1
+    data["maximum_vector_norm"] = 1.0
+
+    with pytest.raises(
+        ValidationError,
+        match=(
+            "minimum_vector_norm cannot exceed "
+            "maximum_vector_norm"
+        ),
+    ):
+        EmbeddingRunReport.model_validate(data)

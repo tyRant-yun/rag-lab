@@ -12,10 +12,16 @@ from rag_lab.contracts.search import (
     SearchHit,
     SearchResult,
 )
+from rag_lab.contracts.embeddings import (
+    EmbeddingBatch,
+    EmbeddingRunReport,
+    EmbeddingVector,
+)
 
 __all__ = [
     "BlockType",
     "EmbeddingBatch",
+    "EmbeddingRunReport",
     "EmbeddingVector",
     "KnowledgeChunk",
     "NormalizedBlock",

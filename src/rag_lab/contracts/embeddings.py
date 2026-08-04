@@ -132,3 +132,112 @@ class EmbeddingBatch(BaseModel):
 
     def to_dict(self) -> dict[str, object]:
         return self.model_dump(mode="json")
+
+class EmbeddingRunReport(BaseModel):
+    """Summary of one complete Chunk embedding run."""
+
+    model_config = ConfigDict(
+        frozen=True,
+        strict=True,
+        extra="forbid",
+    )
+
+    provider: str
+    model: str
+    dimensions: int
+    embedding_version: str
+
+    chunk_count: int
+    batch_count: int
+    vector_count: int
+
+    elapsed_ms: float
+    minimum_vector_norm: float
+    maximum_vector_norm: float
+
+    @model_validator(mode="after")
+    def validate_contract(self) -> Self:
+        if not self.provider.strip():
+            raise ValueError(
+                "provider cannot be empty"
+            )
+
+        if not self.model.strip():
+            raise ValueError(
+                "model cannot be empty"
+            )
+
+        if not self.embedding_version.strip():
+            raise ValueError(
+                "embedding_version cannot be empty"
+            )
+
+        if self.dimensions < 1:
+            raise ValueError(
+                "dimensions must be at least 1"
+            )
+
+        if self.chunk_count < 1:
+            raise ValueError(
+                "chunk_count must be at least 1"
+            )
+
+        if self.batch_count < 1:
+            raise ValueError(
+                "batch_count must be at least 1"
+            )
+
+        if self.batch_count > self.chunk_count:
+            raise ValueError(
+                "batch_count cannot exceed chunk_count"
+            )
+
+        if self.vector_count != self.chunk_count:
+            raise ValueError(
+                "vector_count must equal chunk_count"
+            )
+
+        if (
+            not math.isfinite(self.elapsed_ms)
+            or self.elapsed_ms < 0
+        ):
+            raise ValueError(
+                "elapsed_ms must be finite and "
+                "non-negative"
+            )
+
+        if (
+            not math.isfinite(
+                self.minimum_vector_norm
+            )
+            or self.minimum_vector_norm <= 0
+        ):
+            raise ValueError(
+                "minimum_vector_norm must be "
+                "finite and positive"
+            )
+
+        if (
+            not math.isfinite(
+                self.maximum_vector_norm
+            )
+            or self.maximum_vector_norm <= 0
+        ):
+            raise ValueError(
+                "maximum_vector_norm must be "
+                "finite and positive"
+            )
+
+        if (
+            self.minimum_vector_norm
+            > self.maximum_vector_norm
+        ):
+            raise ValueError(
+                "minimum_vector_norm cannot exceed "
+                "maximum_vector_norm"
+            )
+
+        return self
+
+    def to_dict(self) -> dict[str, object]:
+        return self.model_dump(mode="json")

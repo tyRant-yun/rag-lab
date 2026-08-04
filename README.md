@@ -10,9 +10,14 @@ RAG Lab 是一个本地知识库项目，用于把源文档转换成可追踪、
 4. 中文词法分析；
 5. 内存 BM25 索引、过滤和检索；
 6. 可复用的检索评估模型、评估器和 BM25 CLI。
+7. Ollama 安装及 ollama pull；
+8. embed-chunks 示例；
+9. 8 个 Chunk、2 个 batch、1024 维；
+10. 向量模长范围；
 
-Ollama Embedding、Qdrant、混合检索、检索 API 和 Agent
-集成属于后续阶段。
+明确报告不包含原始向量；
+下一阶段是 Qdrant。
+
 
 ## 整体流程
 
