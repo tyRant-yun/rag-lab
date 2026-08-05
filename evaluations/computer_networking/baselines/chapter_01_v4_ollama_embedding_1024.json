@@ -1,0 +1,12 @@
+{
+  "provider": "ollama",
+  "model": "qwen3-embedding:0.6b",
+  "dimensions": 1024,
+  "embedding_version": "ollama:qwen3-embedding:0.6b:dimensions-1024:query-v1-ec1f1563040d",
+  "chunk_count": 69,
+  "batch_count": 9,
+  "vector_count": 69,
+  "elapsed_ms": 6325.10230015032,
+  "minimum_vector_norm": 0.9999994214444676,
+  "maximum_vector_norm": 1.0000007317346817
+}

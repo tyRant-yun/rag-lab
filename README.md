@@ -206,6 +206,14 @@ python -m pip install pytest
 python -m pytest -q
 ```
 
+如需运行 Docling 转换脚本（转换脚本位于本机
+`computer-networking/scripts/`，该目录按 `.gitignore` 不入 Git），
+额外安装转换依赖（当前基线产物由 docling-core schema 1.10.0 生成）：
+
+```powershell
+python -m pip install -e ".[conversion]"
+```
+
 ## 运行 Normalizer
 
 使用 Python 模块入口：
@@ -424,8 +432,10 @@ overlap_char_count
 - `embedding_version` 记录模型标签、维度和查询指令哈希，但尚未
   记录 Ollama 本地模型文件的完整 digest。
 - 尚未实现持久化词法索引、混合检索、reranker、检索 API 和 Agent。
-- 当前评估集只有第 19–23 页的 8 个 Chunk 和 7 个查询，只能作为
-  流程冒烟基线，不能代表完整第一章的检索质量。
+- 完整第一章正式基线（43 页 / 69 Chunk / 33 条查询）已建立，见
+  `docs/chapter-01-v4-baseline.md`；`chapter_01_smoke` 仍作为流程冒烟集保留。
+- `source_path` 保留绝对路径仅用于溯源，产物可再生成；换机或换目录后
+  该字段会变化，不应作为稳定标识使用。
 
 ## 真实样本回归
 
@@ -554,6 +564,8 @@ chapter_01_smoke_ollama_embedding_1024.json
 2. BM25 检索与基线评估；
 3. Ollama Embedding、分批验证 CLI 与真实样本报告；
 4. Qdrant 向量存储、Dense Retriever、运行时 CLI 与 Dense 基线评估。
+5. 完整第一章（PDF 第 19–61 页）正式语料、33 条评估集，
+   BM25 / Dense / Embedding 全链路基线（`docs/chapter-01-v4-baseline.md`）。
 
 下一阶段依次实现：
 
@@ -561,3 +573,29 @@ chapter_01_smoke_ollama_embedding_1024.json
 2. reranker；
 3. 检索 API；
 4. Agent 工具接入。
+
+## 第一章 V4 正式基线
+
+第一章（PDF 第 19–61 页，43 页）已从冒烟样本升级为正式语料：
+
+- 语料：`computer-networking/output/chapter-01/baseline-v4-final`
+  （normalizer/chunker 版本 1.1.0，359 块 → 69 Chunk）；
+- 评估集：`evaluations/computer_networking/chapter_01_v4.jsonl`
+  （27 个小节标题探针 + 6 条 smoke 查询）；
+- Qdrant collection：`computer-networking-chapter-01-v4`
+  （qwen3-embedding:0.6b，1024 维，69/69 写入）。
+
+基线结果（33 条评估）：
+
+| 检索器 | Top K | Hit@K | Mean Recall@K | MRR |
+| --- | ---: | ---: | ---: | ---: |
+| BM25 | 3 | 0.9697 | 0.7206 | 0.9343 |
+| BM25 | 5 | 0.9697 | 0.8642 | 0.9343 |
+| Dense | 1 | 0.8485 | 0.3718 | 0.8485 |
+| Dense | 3 | 0.8788 | 0.6519 | 0.8636 |
+| Dense | 5 | 0.9697 | 0.7925 | 0.8833 |
+
+BM25 与 Dense 在 Top 5 各漏掉 1 条且互不相同（BM25 漏 `end-systems`，
+Dense 漏 `packet-switching`），是混合检索的直接改进空间。
+完整记录见 `docs/chapter-01-v4-baseline.md` 与
+`evaluations/computer_networking/baselines/chapter_01_v4_*`。
