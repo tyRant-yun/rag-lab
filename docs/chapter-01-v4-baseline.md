@@ -100,17 +100,31 @@
 `src/rag_lab/evaluation/hybrid_cli.py`；报告保存在
 `evaluations/computer_networking/baselines/chapter_01_v4_hybrid_rrf_top{3,5}.json`。
 
+### Rerank（词法重叠重排，fetch_k=20，权重 1.0/1.0/1.0）
+
+| Top K | Hit@K | Mean Recall@K | MRR |
+| --- | ---: | ---: | ---: |
+| 3 | 1.0000 | 0.7988 | 0.9848 |
+| 5 | 1.0000 | 0.9097 | 0.9848 |
+
+实现见 `src/rag_lab/retrieval/rerank/` 与
+`src/rag_lab/evaluation/rerank_cli.py`；报告保存在
+`evaluations/computer_networking/baselines/chapter_01_v4_rerank_top{3,5}.json`。
+重排后 33 条评估中 32 条首个相关结果排第 1，MRR 从 Hybrid 的 0.9343
+提升到 0.9848。
+
 ### 失败用例分析（Top 5）
 
 BM25 与 Dense 在 Hit@5 均为 0.9697（32/33），且**未命中用例不同**：
 
-| 用例 | query | BM25 | Dense | Hybrid RRF |
-| --- | --- | --- | --- | --- |
-| `end-systems` | 什么是端系统 | 未命中 | 第 4 名命中 | 命中 |
-| `packet-switching` | 什么是分组交换网络 | 第 3 名命中 | 未命中 | 命中 |
+| 用例 | query | BM25 | Dense | Hybrid RRF | Rerank |
+| --- | --- | --- | --- | --- | --- |
+| `end-systems` | 什么是端系统 | 未命中 | 第 4 名命中 | 命中 | 第 2 名命中 |
+| `packet-switching` | 什么是分组交换网络 | 第 3 名命中 | 未命中 | 命中 | 第 1 名命中 |
 
 说明词法检索和向量检索对问句式查询的失败面不重叠，
-RRF 混合检索已把 Hit@5 提升到 1.000000（33/33），MRR 与单路最优持平。
+RRF 混合检索已把 Hit@5 提升到 1.000000（33/33）；叠加词法重排后
+MRR 进一步从 0.9343 提升到 0.9848（32/33 排第 1）。
 
 ## 复现命令
 
@@ -143,6 +157,15 @@ evaluate-dense `
 
 # 混合评估
 evaluate-hybrid `
+  --chunks "path\to\chunks.jsonl" `
+  --cases ".\evaluations\computer_networking\chapter_01_v4.jsonl" `
+  --dataset-id "chapter-01-v4" `
+  --collection "computer-networking-chapter-01-v4" `
+  --top-k 5 --json
+```
+
+# 重排评估
+evaluate-rerank `
   --chunks "path\to\chunks.jsonl" `
   --cases ".\evaluations\computer_networking\chapter_01_v4.jsonl" `
   --dataset-id "chapter-01-v4" `
