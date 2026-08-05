@@ -51,7 +51,8 @@ Markdown 文件只用于人工检查，JSONL 文件才是下游机器接口。
 - **EmbeddingProvider**：负责区分文档和查询的向量化策略，并校验模型返回的向量。
 - **Embedding CLI**：负责对 Chunk 分批向量化并输出不含原始向量的验收报告。
 - **DenseRetriever**：负责查询向量化、Qdrant 向量检索和 `SearchResult` 转换。
-- **Hybrid Retriever**：后续负责词法和向量结果的融合排序。
+- **Hybrid Retriever**：使用 Reciprocal Rank Fusion（RRF）融合
+  BM25 与 Dense 的排名结果。
 - **Agent**：后续通过稳定的检索工具使用知识库。
 
 Chunker 只读取 `blocks.jsonl`，不读取 PDF、Docling JSON 或人工审阅 Markdown。
@@ -84,6 +85,9 @@ src/rag_lab/
 │   │   ├── retriever.py
 │   │   └── cli.py
 │   └── dense/
+│       ├── retriever.py
+│       └── cli.py
+│   └── hybrid/
 │       ├── retriever.py
 │       └── cli.py
 ├── embeddings/
@@ -431,7 +435,7 @@ overlap_char_count
   迁移、增量写入和删除不在当前阶段范围内。
 - `embedding_version` 记录模型标签、维度和查询指令哈希，但尚未
   记录 Ollama 本地模型文件的完整 digest。
-- 尚未实现持久化词法索引、混合检索、reranker、检索 API 和 Agent。
+- 尚未实现持久化词法索引、reranker、检索 API 和 Agent。
 - 完整第一章正式基线（43 页 / 69 Chunk / 33 条查询）已建立，见
   `docs/chapter-01-v4-baseline.md`；`chapter_01_smoke` 仍作为流程冒烟集保留。
 - `source_path` 保留绝对路径仅用于溯源，产物可再生成；换机或换目录后
@@ -566,13 +570,14 @@ chapter_01_smoke_ollama_embedding_1024.json
 4. Qdrant 向量存储、Dense Retriever、运行时 CLI 与 Dense 基线评估。
 5. 完整第一章（PDF 第 19–61 页）正式语料、33 条评估集，
    BM25 / Dense / Embedding 全链路基线（`docs/chapter-01-v4-baseline.md`）。
+6. 混合检索（RRF）原型：`HybridRetriever`、`search-hybrid` 与
+   `evaluate-hybrid` CLI，全章评估 Hit@5 提升到 1.000000。
 
 下一阶段依次实现：
 
-1. BM25 与向量混合检索；
-2. reranker；
-3. 检索 API；
-4. Agent 工具接入。
+1. reranker；
+2. 检索 API；
+3. Agent 工具接入。
 
 ## 第一章 V4 正式基线
 
@@ -599,3 +604,43 @@ BM25 与 Dense 在 Top 5 各漏掉 1 条且互不相同（BM25 漏 `end-systems`
 Dense 漏 `packet-switching`），是混合检索的直接改进空间。
 完整记录见 `docs/chapter-01-v4-baseline.md` 与
 `evaluations/computer_networking/baselines/chapter_01_v4_*`。
+
+## 混合检索（RRF）
+
+`HybridRetriever` 对 BM25 与 Dense 各自的前 `per_retriever_k` 条结果
+做 Reciprocal Rank Fusion（默认 `rrf_k=60`、`per_retriever_k=10`）：
+每个 Chunk 的融合分数为 `Σ 1 / (rrf_k + rank)`，再按分数降序、
+Chunk ID 升序确定性排序。
+
+### 运行混合检索
+
+```powershell
+search-hybrid `
+  --chunks "path\to\chunks.jsonl" `
+  --query "什么是端系统" `
+  --collection "computer-networking-chapter-01-v4" `
+  --top-k 5
+```
+
+### 运行混合评估
+
+```powershell
+evaluate-hybrid `
+  --chunks "path\to\chunks.jsonl" `
+  --cases ".\evaluations\computer_networking\chapter_01_v4.jsonl" `
+  --dataset-id "chapter-01-v4" `
+  --collection "computer-networking-chapter-01-v4" `
+  --top-k 5 --json
+```
+
+### 第一章 V4 混合基线（33 条评估）
+
+| Top K | Hit@K | Mean Recall@K | MRR |
+| --- | ---: | ---: | ---: |
+| 3 | 1.0000 | 0.7711 | 0.9394 |
+| 5 | 1.0000 | 0.8915 | 0.9343 |
+
+RRF 补上了单路检索的失败面：BM25 漏掉的 `end-systems` 与 Dense 漏掉的
+`packet-switching` 在混合结果中均恢复命中，Hit@5 从 0.9697 提升到 1.0。
+基线报告保存在 `evaluations/computer_networking/baselines/`
+`chapter_01_v4_hybrid_rrf_top{3,5}.json`。
