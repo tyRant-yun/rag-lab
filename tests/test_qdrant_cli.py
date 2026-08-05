@@ -135,6 +135,14 @@ class FakeVectorStore:
             ),
         )
 
+    def count(
+        self,
+        *,
+        filters: SearchFilters | None = None,
+    ) -> int:
+        del filters
+        return len(self.records)
+
     def search(
         self,
         vector: EmbeddingVector,
