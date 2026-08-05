@@ -19,96 +19,12 @@ from rag_lab.contracts import (
     VectorWriteReport,
 )
 from rag_lab.vector_store import QdrantVectorStore
-
-
-def make_chunk(
-    *,
-    chunk_id: str,
-    ordinal: int,
-    index_text: str | None = None,
-) -> KnowledgeChunk:
-    return KnowledgeChunk(
-        chunk_id=chunk_id,
-        document_id="document-a",
-        content=index_text or f"正文 {chunk_id}",
-        index_text=index_text or f"索引正文 {chunk_id}",
-        heading_path=["第一章"],
-        page_start=ordinal,
-        page_end=ordinal,
-        ordinal=ordinal,
-        block_ids=[f"block-{ordinal}"],
-        source_path="book.pdf",
-        content_hash=f"hash-{ordinal}",
-        normalization_version="normalizer-v1",
-        chunking_version="chunker-v1",
-    )
-
-
-def write_chunks(
-    path: Path,
-    chunks: Sequence[KnowledgeChunk],
-) -> None:
-    path.write_text(
-        "\n".join(
-            json.dumps(
-                chunk.to_dict(),
-                ensure_ascii=False,
-            )
-            for chunk in chunks
-        )
-        + "\n",
-        encoding="utf-8",
-        newline="\n",
-    )
-
-
-class FakeEmbeddingProvider:
-    def __init__(
-        self,
-        *,
-        dimensions: int = 2,
-    ) -> None:
-        self._dimensions = dimensions
-        self.query_calls: list[str] = []
-
-    @property
-    def provider_name(self) -> str:
-        return "fake"
-
-    @property
-    def model_name(self) -> str:
-        return "fake-model"
-
-    @property
-    def dimensions(self) -> int:
-        return self._dimensions
-
-    @property
-    def embedding_version(self) -> str:
-        return (
-            "fake:fake-model:"
-            f"{self.dimensions}:v1"
-        )
-
-    def embed_documents(
-        self,
-        texts: Sequence[str],
-    ) -> EmbeddingBatch:
-        del texts
-        raise AssertionError(
-            "API search must not embed documents"
-        )
-
-    def embed_query(
-        self,
-        text: str,
-    ) -> EmbeddingVector:
-        self.query_calls.append(text)
-
-        return EmbeddingVector(
-            values=[0.6, 0.8],
-            dimensions=self.dimensions,
-        )
+from tests.helpers import (
+    FakeEmbeddingProvider,
+    FakeVectorStore,
+    make_chunk,
+    write_chunks,
+)
 
 
 class LocalModeEmbeddingProvider(
@@ -123,71 +39,6 @@ class LocalModeEmbeddingProvider(
             values=[0.6, 0.8],
             dimensions=self.dimensions,
         )
-
-
-class FakeVectorStore:
-    def __init__(
-        self,
-        *,
-        collection_name: str,
-        dimensions: int = 2,
-        candidate_count: int = 0,
-        matches: Sequence[VectorMatch] = (),
-    ) -> None:
-        self._collection_name = collection_name
-        self._dimensions = dimensions
-        self._candidate_count = candidate_count
-        self._matches = list(matches)
-        self.count_calls: list[SearchFilters | None] = []
-        self.search_calls: list[
-            tuple[
-                EmbeddingVector,
-                int,
-                SearchFilters | None,
-            ]
-        ] = []
-
-    @property
-    def collection_name(self) -> str:
-        return self._collection_name
-
-    @property
-    def dimensions(self) -> int:
-        return self._dimensions
-
-    def ensure_collection(self) -> None:
-        raise AssertionError(
-            "API search must not create collections"
-        )
-
-    def upsert(
-        self,
-        records: Sequence[VectorRecord],
-    ) -> VectorWriteReport:
-        del records
-        raise AssertionError(
-            "API search must not index records"
-        )
-
-    def count(
-        self,
-        *,
-        filters: SearchFilters | None = None,
-    ) -> int:
-        self.count_calls.append(filters)
-        return self._candidate_count
-
-    def search(
-        self,
-        vector: EmbeddingVector,
-        *,
-        top_k: int = 5,
-        filters: SearchFilters | None = None,
-    ) -> list[VectorMatch]:
-        self.search_calls.append(
-            (vector, top_k, filters)
-        )
-        return list(self._matches)
 
 
 def make_client(
@@ -269,7 +120,7 @@ def test_search_bm25(tmp_path: Path):
     assert response.status_code == 200
     payload = response.json()
     assert payload["retriever"] == "bm25"
-    assert payload["hits"][0]["chunk"]["chunk_id"] == (
+    assert payload["hits"][0]["chunk_id"] == (
         "chunk-tcp"
     )
 
@@ -314,7 +165,7 @@ def test_search_dense_routes_to_vector_store(
     assert response.status_code == 200
     payload = response.json()
     assert payload["retriever"] == "dense"
-    assert payload["hits"][0]["chunk"]["chunk_id"] == (
+    assert payload["hits"][0]["chunk_id"] == (
         "chunk-tcp"
     )
     assert provider.query_calls == ["TCP"]
@@ -369,9 +220,36 @@ def test_search_with_filters(tmp_path: Path):
     )
 
     assert response.status_code == 200
-    assert response.json()["hits"][0]["chunk"][
-        "chunk_id"
-    ] == "chunk-tcp"
+    assert response.json()["hits"][0]["chunk_id"] == (
+        "chunk-tcp"
+    )
+
+
+def test_source_path_hidden_by_default_and_opt_in(
+    tmp_path: Path,
+):
+    client, _ = make_client(tmp_path)
+
+    hidden = client.post(
+        "/search",
+        json={
+            "query": "TCP",
+            "retriever": "bm25",
+        },
+    ).json()
+
+    assert hidden["hits"][0]["source_path"] is None
+
+    shown = client.post(
+        "/search",
+        json={
+            "query": "TCP",
+            "retriever": "bm25",
+            "include_source_path": True,
+        },
+    ).json()
+
+    assert shown["hits"][0]["source_path"] == "book.pdf"
 
 
 def test_invalid_retriever_name_returns_422(

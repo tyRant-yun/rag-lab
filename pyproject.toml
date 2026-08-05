@@ -19,6 +19,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8,<9",
+    # test_api.py requires FastAPI/uvicorn, so dev must cover the api extra.
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.30,<1",
 ]
 conversion = [
     "docling>=2,<3",
@@ -42,6 +45,8 @@ evaluate-rerank = "rag_lab.evaluation.rerank_cli:main"
 embed-chunks = "rag_lab.embeddings.cli:main"
 index-qdrant = "rag_lab.vector_store.cli:main"
 serve-api = "rag_lab.api.cli:main"
+search-tool-schema = "rag_lab.tools.cli:schema_main"
+execute-search-tool = "rag_lab.tools.cli:execute_main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

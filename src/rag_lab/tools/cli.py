@@ -5,27 +5,21 @@ import json
 import sys
 from collections.abc import (
     Callable,
+    Mapping,
     Sequence,
 )
 from pathlib import Path
 
-from rag_lab.contracts import (
-    SearchFilters,
-    SearchResult,
-)
 from rag_lab.embeddings import (
     EmbeddingProvider,
     OllamaEmbeddingError,
     OllamaEmbeddingProvider,
 )
-from rag_lab.retrieval.factory import (
-    build_retrieval_components,
+from rag_lab.tools.retrieval_toolset import (
+    RetrievalToolset,
 )
-from rag_lab.retrieval.hybrid import (
-    HybridRetriever,
-)
-from rag_lab.retrieval.rendering import (
-    render_human_result,
+from rag_lab.tools.search_tool import (
+    SearchKnowledgeTool,
 )
 from rag_lab.vector_store import (
     QdrantVectorStoreError,
@@ -46,15 +40,9 @@ StoreFactory = Callable[
 ]
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="search-hybrid",
-        description=(
-            "Fuse in-memory BM25 and an existing Qdrant "
-            "collection with Reciprocal Rank Fusion."
-        ),
-    )
-
+def _add_toolset_arguments(
+    parser: argparse.ArgumentParser,
+) -> None:
     parser.add_argument(
         "--chunks",
         type=Path,
@@ -62,37 +50,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to KnowledgeChunk JSONL.",
     )
     parser.add_argument(
-        "--query",
-        required=True,
-        help="Query text.",
-    )
-    parser.add_argument(
         "--collection",
         required=True,
         help="Qdrant collection name.",
-    )
-    parser.add_argument(
-        "--top-k",
-        type=int,
-        default=5,
-        help="Maximum number of hits. Default: 5.",
-    )
-    parser.add_argument(
-        "--rrf-k",
-        type=int,
-        default=HybridRetriever.DEFAULT_RRF_K,
-        help="RRF smoothing constant. Default: 60.",
-    )
-    parser.add_argument(
-        "--per-retriever-k",
-        type=int,
-        default=(
-            HybridRetriever.DEFAULT_PER_RETRIEVER_K
-        ),
-        help=(
-            "Hits requested from each retriever "
-            "before fusion. Default: 10."
-        ),
     )
     parser.add_argument(
         "--url",
@@ -110,7 +70,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Ollama embedding model.",
     )
     parser.add_argument(
-        "--host",
+        "--ollama-host",
         default=(
             OllamaEmbeddingProvider.DEFAULT_HOST
         ),
@@ -155,45 +115,31 @@ def build_parser() -> argparse.ArgumentParser:
             "May be repeated."
         ),
     )
-    parser.add_argument(
-        "--document-id",
-        action="append",
-        dest="document_ids",
-        help=(
-            "Restrict results to a document ID. "
-            "May be repeated."
+
+
+def schema_main(
+    argv: Sequence[str] | None = None,
+) -> int:
+    parser = argparse.ArgumentParser(
+        prog="search-tool-schema",
+        description=(
+            "Print the OpenAI function schema of the "
+            "search_knowledge tool."
         ),
     )
-    parser.add_argument(
-        "--heading",
-        action="append",
-        dest="heading_prefix",
-        help=(
-            "Add one heading-prefix component. "
-            "Order is significant."
-        ),
-    )
-    parser.add_argument(
-        "--page-start",
-        type=int,
-        help="First source page to include.",
-    )
-    parser.add_argument(
-        "--page-end",
-        type=int,
-        help="Last source page to include.",
-    )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        dest="json_output",
-        help="Write the complete SearchResult as JSON.",
-    )
+    parser.parse_args(argv)
 
-    return parser
+    print(
+        json.dumps(
+            SearchKnowledgeTool.openai_schema(),
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
 
 
-def main(
+def execute_main(
     argv: Sequence[str] | None = None,
     *,
     provider_factory: ProviderFactory = (
@@ -203,16 +149,40 @@ def main(
         build_qdrant_store
     ),
 ) -> int:
-    parser = build_parser()
+    parser = argparse.ArgumentParser(
+        prog="execute-search-tool",
+        description=(
+            "Validate and execute the search_knowledge "
+            "tool with JSON arguments."
+        ),
+    )
+    _add_toolset_arguments(parser)
+    parser.add_argument(
+        "--args",
+        required=True,
+        help="Tool arguments as a JSON object string.",
+    )
     arguments = parser.parse_args(argv)
 
     try:
-        components = build_retrieval_components(
+        raw_arguments: object = json.loads(
+            arguments.args
+        )
+
+        if not isinstance(
+            raw_arguments,
+            dict,
+        ):
+            raise TypeError(
+                "--args must be a JSON object"
+            )
+
+        toolset = RetrievalToolset.build(
             chunks_path=arguments.chunks,
             collection=arguments.collection,
             url=arguments.url,
             model=arguments.model,
-            host=arguments.host,
+            host=arguments.ollama_host,
             dimensions=arguments.dimensions,
             embedding_timeout_seconds=(
                 arguments
@@ -227,23 +197,8 @@ def main(
             provider_factory=provider_factory,
             store_factory=store_factory,
         )
-        retriever = components.retriever(
-            "hybrid",
-            rrf_k=arguments.rrf_k,
-            per_retriever_k=(
-                arguments.per_retriever_k
-            ),
-        )
-        filters = SearchFilters(
-            document_ids=arguments.document_ids,
-            heading_prefix=arguments.heading_prefix,
-            page_start=arguments.page_start,
-            page_end=arguments.page_end,
-        )
-        result = retriever.search(
-            arguments.query,
-            top_k=arguments.top_k,
-            filters=filters,
+        result = toolset.execute(
+            dict(raw_arguments)
         )
     except (
         OSError,
@@ -251,6 +206,7 @@ def main(
         QdrantVectorStoreError,
         TypeError,
         ValueError,
+        json.JSONDecodeError,
     ) as error:
         print(
             f"error: {error}",
@@ -258,19 +214,24 @@ def main(
         )
         return 2
 
-    if arguments.json_output:
-        print(
-            json.dumps(
-                result.to_dict(),
-                ensure_ascii=False,
-                indent=2,
-            )
+    print(
+        json.dumps(
+            result,
+            ensure_ascii=False,
+            indent=2,
         )
-    else:
-        print(render_human_result(result))
-
+    )
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    if len(sys.argv) > 1 and sys.argv[1] == "schema":
+        raise SystemExit(schema_main(sys.argv[2:]))
+
+    raise SystemExit(
+        execute_main(
+            sys.argv[1:]
+            if len(sys.argv) > 1
+            else None
+        )
+    )

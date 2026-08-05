@@ -16,7 +16,8 @@ RAG Lab 是一个本地知识库项目，用于把源文档转换成可追踪、
 10. Qdrant 向量存储、Dense Retriever 与检索 CLI；
 11. Dense 检索评估 CLI 与真实样本基线报告。
 
-Agent 集成属于后续阶段。Embedding 基线只记录统计信息，不保存原始向量。
+README 路线各阶段已全部落地；持久化词法索引、多文档增量索引与
+生产化部署属于后续工作。Embedding 基线只记录统计信息，不保存原始向量。
 
 ## 整体流程
 
@@ -52,7 +53,7 @@ Markdown 文件只用于人工检查，JSONL 文件才是下游机器接口。
 - **DenseRetriever**：负责查询向量化、Qdrant 向量检索和 `SearchResult` 转换。
 - **Hybrid Retriever**：使用 Reciprocal Rank Fusion（RRF）融合
   BM25 与 Dense 的排名结果。
-- **Agent**：后续通过稳定的检索工具使用知识库。
+- **Agent**：通过 `search_knowledge` 工具使用知识库。
 
 Chunker 只读取 `blocks.jsonl`，不读取 PDF、Docling JSON 或人工审阅 Markdown。
 
@@ -111,8 +112,12 @@ src/rag_lab/
 │   ├── dense_cli.py
 │   ├── hybrid_cli.py
 │   └── rerank_cli.py
-└── api/
-    ├── app.py
+├── api/
+│   ├── app.py
+│   └── cli.py
+└── tools/
+    ├── search_tool.py
+    ├── retrieval_toolset.py
     └── cli.py
 ```
 
@@ -444,7 +449,7 @@ overlap_char_count
   迁移、增量写入和删除不在当前阶段范围内。
 - `embedding_version` 记录模型标签、维度和查询指令哈希，但尚未
   记录 Ollama 本地模型文件的完整 digest。
-- 尚未实现持久化词法索引和 Agent 工具接入。
+- 尚未实现持久化词法索引。
 - 完整第一章正式基线（43 页 / 69 Chunk / 33 条查询）已建立，见
   `docs/chapter-01-v4-baseline.md`；`chapter_01_smoke` 仍作为流程冒烟集保留。
 - `source_path` 保留绝对路径仅用于溯源，产物可再生成；换机或换目录后
@@ -586,10 +591,14 @@ chapter_01_smoke_ollama_embedding_1024.json
    MRR 提升到 0.9848。
 8. 检索 API：`rag_lab.api.create_app` + `serve-api`，支持
    bm25 / dense / hybrid / rerank 四种检索器与过滤参数。
+9. Agent 工具接入：`search_knowledge` 工具（OpenAI function schema、
+   Pydantic 参数校验、后端只读执行）与 `search-tool-schema` /
+   `execute-search-tool` CLI。
 
 下一阶段依次实现：
 
-1. Agent 工具接入。
+README 路线已全部落地。后续候选：持久化词法索引、多文档增量索引、
+模型化 reranker、生产化部署与监控。
 
 ## 第一章 V4 正式基线
 
@@ -733,7 +742,8 @@ serve-api `
 `retriever` 可选 `bm25` / `dense` / `hybrid` / `rerank`（默认 `rerank`）；
 可选的过滤与调参字段包括 `document_ids`、`heading_prefix`、
 `page_start`、`page_end`、`rrf_k`、`per_retriever_k`、`fetch_k` 与
-重排权重。响应为完整 `SearchResult` JSON。
+重排权重。响应为脱敏后的检索结果 JSON（默认不返回 `source_path`，
+如需溯源可传 `"include_source_path": true`）。
 
 ```powershell
 curl.exe -X POST http://127.0.0.1:8000/search `
@@ -742,3 +752,31 @@ curl.exe -X POST http://127.0.0.1:8000/search `
 ```
 
 API 错误语义：参数校验失败返回 422，Ollama / Qdrant 上游失败返回 502。
+
+## Agent 工具接入
+
+`rag_lab.tools` 把知识库检索封装为 Agent 可调用的稳定只读工具
+`search_knowledge`：模型只提出参数，后端用 Pydantic 校验后执行白名单
+检索器，返回带来源（chunk_id / heading / 页码 / 分数）的有界结果。
+工具不授予模型任意函数执行能力。
+
+### 打印 OpenAI 工具 Schema
+
+```powershell
+search-tool-schema
+```
+
+输出 `search_knowledge` 的 OpenAI function-calling 定义，可直接用于
+兼容 OpenAI 协议的 Agent 工具列表。
+
+### 执行工具
+
+```powershell
+execute-search-tool `
+  --chunks "path\to\chunks.jsonl" `
+  --collection "computer-networking-chapter-01-v4" `
+  --args '{"query":"什么是端系统","retriever":"rerank","top_k":3}'
+```
+
+`--args` 接受 JSON 对象，字段与工具 Schema 一致；参数非法时返回
+`{"success": false, "error": ...}` 而不是抛异常，方便 Agent 循环兜底。
