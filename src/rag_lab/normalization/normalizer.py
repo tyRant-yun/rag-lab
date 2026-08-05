@@ -897,7 +897,7 @@ def _build_candidates(
 
         if not heading_stack:
             fallback_title = (
-                chapter_marker or "Document"
+                pending_chapter_marker or "Document"
             )
             heading_stack = [fallback_title]
 

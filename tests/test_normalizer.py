@@ -177,6 +177,41 @@ def test_normalize_text_handles_cjk_spacing():
     ) == "1.1.1 具体构成描述"
 
 
+def test_normalizer_uses_document_fallback_before_title(
+    tmp_path: Path,
+):
+    source = tmp_path / "source.pdf"
+    source.write_bytes(b"fake-pdf")
+    document = {
+        "pages": {
+            "1": {
+                "page_no": 1,
+                "size": {
+                    "width": 500,
+                    "height": 700,
+                },
+            }
+        },
+        "texts": [
+            text_item(
+                0,
+                text="未带标题的正文。",
+                page=1,
+                top=600,
+            )
+        ],
+    }
+
+    result = normalize_docling_document(
+        docling_document=document,
+        source_path=source,
+        normalization_version="1.0.0",
+    )
+
+    assert result.blocks[0].text == "未带标题的正文。"
+    assert result.blocks[0].heading_path == ["Document"]
+
+
 def test_normalizer_restores_order_and_contract(
     tmp_path: Path,
 ):
