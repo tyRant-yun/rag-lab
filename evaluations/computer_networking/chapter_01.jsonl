@@ -1,0 +1,39 @@
+{"case_id":"internet-two-descriptions","query":"教材从哪两种角度说明什么是因特网？","relevant_chunk_ids":["sha256:44aaa7b91ad4115eb466f9566942db2668648dfed3c2175a728c8838c4434bad"],"filters":{"document_ids":["sha256:fef1b562abea48b141fabdee49cb9bcc7c7fecd400b416affd5811543da52592"]}}
+{"case_id":"end-system-and-host","query":"端系统为什么也称为主机？通常包括哪些设备？","relevant_chunk_ids":["sha256:5e8fbdb98058f4edf54291c598774efcf8d4f72e66e27d530a4cd8dae0c1ecef"],"filters":null}
+{"case_id":"isp-role-and-interconnection","query":"ISP 如何让端系统接入因特网，并且为什么 ISP 之间必须互联？","relevant_chunk_ids":["sha256:d889bb2e2dc3c586ebf57b312a84deea669612e5dbfd70314fdc02a208e0b449"],"filters":null}
+{"case_id":"tcp-ip-meaning","query":"TCP 和 IP 分别是什么，TCP/IP 这个统称指什么？","relevant_chunk_ids":["sha256:d889bb2e2dc3c586ebf57b312a84deea669612e5dbfd70314fdc02a208e0b449"],"filters":null}
+{"case_id":"ietf-rfc-standards","query":"IETF 与 RFC 在因特网标准制定中分别扮演什么角色？","relevant_chunk_ids":["sha256:61db585dcdb48ea3a8ed3a11c1efbb19a8d885dff6b3b7440d79003fc805562c"],"filters":null}
+{"case_id":"distributed-applications-and-socket","query":"分布式因特网应用运行在哪里，程序通过什么接口请求网络交付数据？","relevant_chunk_ids":["sha256:4ecab02e7617298be1bc36ae4fa2a30dae468f304b5f2484808d40102ec641df"],"filters":null}
+{"case_id":"network-protocol-definition","query":"网络协议如何定义通信实体交换报文时的格式、顺序和操作？","relevant_chunk_ids":["sha256:2c4eeea0155eae37f6573f73e15ecee0fa314b27e75c51dd29be4897d2cdc20d"],"filters":{"page_start":24,"page_end":24}}
+{"case_id":"access-network-edge-router","query":"什么是接入网，边缘路由器在端系统到远程端系统的路径中处于什么位置？","relevant_chunk_ids":["sha256:edb0403ca7851ca3b8d20e822dbbd6d51376b20d43c61831b0faf234b28849c1"],"filters":{"heading_prefix":["第1章 计算机网络和因特网","1.2 网络边缘","1.2.1 接入网"]}}
+{"case_id":"dsl-access","query":"家庭 DSL 接入中 DSLAM 和电话线各自做什么？","relevant_chunk_ids":["sha256:edb0403ca7851ca3b8d20e822dbbd6d51376b20d43c61831b0faf234b28849c1"],"filters":{"page_start":26,"page_end":28}}
+{"case_id":"cable-shared-medium","query":"为什么多个家庭同时使用电缆因特网时，实际下行速率可能下降？","relevant_chunk_ids":["sha256:32f39094e0a9f08c2c9a37b3d13ec4153928cdee317e1a461f306583c4ce3b2f"],"filters":null}
+{"case_id":"ftth-pon","query":"FTTH 的 PON 体系结构中 ONT、分配器和 OLT 如何连接家庭与中心局？","relevant_chunk_ids":["sha256:32f39094e0a9f08c2c9a37b3d13ec4153928cdee317e1a461f306583c4ce3b2f"],"filters":null}
+{"case_id":"wifi-and-cellular-access","query":"WiFi 与 4G/5G 广域蜂窝接入在覆盖范围和接入方式上有什么区别？","relevant_chunk_ids":["sha256:b439ee91b741a638d5ccd5605c85b675d6e36e0a469289ca4829b50234baff67"],"filters":null}
+{"case_id":"guided-and-unguided-media","query":"导引型媒介和非导引型媒介如何区分？请给出各自的例子。","relevant_chunk_ids":["sha256:9f07a03f4a2ca541bc8c1dbcd4635c542bf47c6f2a7b7a9a4b5209be9c8caa43"],"filters":null}
+{"case_id":"optical-fiber-properties","query":"光纤为什么适合长途和主干网络传输？","relevant_chunk_ids":["sha256:fd371a27b6a36491b0a8ae950dc043082605aba00c79c6c60ac89957b064d063"],"filters":null}
+{"case_id":"satellite-propagation-delay","query":"同步卫星链路为什么会带来较大的传播时延，LEO 卫星有什么不同？","relevant_chunk_ids":["sha256:a78c8118e2ffcce59b918f555b0ff6ec0edec3a76ff2a5a76bcffb57b4158fde"],"filters":{"heading_prefix":["第1章 计算机网络和因特网","1.2 网络边缘","1.2.2 物理媒介"],"page_start":32,"page_end":33}}
+{"case_id":"network-core-definition","query":"网络核心由哪些部分构成，它的基本作用是什么？","relevant_chunk_ids":["sha256:417b37590b31a85b8d807fb92344c9fad7ddd98c85596aa13785e91aef72b1a0"],"filters":null}
+{"case_id":"store-and-forward","query":"什么是存储转发传输，为什么路由器必须先收到整个分组才能转发？","relevant_chunk_ids":["sha256:55ef3f7bfd1a54420370b18be41cab13dece76fa3639d2b07e420ad89a65e0e7"],"filters":{"heading_prefix":["第1章 计算机网络和因特网","1.3 网络核心","1.3.1 分组交换"]}}
+{"case_id":"queueing-and-packet-loss","query":"输出缓存中的排队时延和分组丢失是怎样产生的？","relevant_chunk_ids":["sha256:5ee75327799efe37d3afb22231125491f3fa81c0853d966031be8e1dee7636b1"],"filters":null}
+{"case_id":"forwarding-table-and-routing","query":"路由器怎样利用目的 IP 地址和转发表选择输出链路？","relevant_chunk_ids":["sha256:f904ed1d71ad2d654280410dcbe29fc75e0f342eb724c5bf2f437f90d00b7f18"],"filters":null}
+{"case_id":"circuit-switching-reservation","query":"电路交换与分组交换在资源预留和等待方面有什么根本差异？","relevant_chunk_ids":["sha256:d8e7dd3779431d447ca0b8249296c2014e220a8539cb5e60ebd560ddbb54e3f2"],"filters":null}
+{"case_id":"fdm-versus-tdm","query":"FDM 和 TDM 分别怎样把一条链路的资源分给多条电路？","relevant_chunk_ids":["sha256:1b646f30e10fbce275816a9577e92db77578f9d81a86d9a3e48a62bdc987610c"],"filters":null}
+{"case_id":"packet-switching-statistical-sharing","query":"为什么面对突发、间歇业务时，分组交换能比预留电路更有效地共享带宽？","relevant_chunk_ids":["sha256:004dab878c27f73de8ec7aff3681d9d493c1e25cfd0e1077016066d62351f07f"],"filters":null}
+{"case_id":"isp-peering-ixp","query":"ISP 的多宿、对等和 IXP 分别解决什么互联问题？","relevant_chunk_ids":["sha256:fbf3ee1bc1fe7506459299383dc5e4a75cf742b8aaf709da54cd09454e61706f"],"filters":null}
+{"case_id":"node-delay-components","query":"一个分组在节点上会经历哪四类主要时延？","relevant_chunk_ids":["sha256:ed25f06995ed26ae19aaa0f65fa005df4679f2536fdb5cfbf6a2fbfc41a3f6de"],"filters":null}
+{"case_id":"transmission-versus-propagation-delay","query":"传输时延 L/R 与传播时延 d/s 的决定因素分别是什么？","relevant_chunk_ids":["sha256:e8b30aa05254e3e8aaec90803740d163661c4a6299af3111019931b666540747"],"filters":null}
+{"case_id":"traffic-intensity","query":"流量强度 La/R 接近或超过 1 时，排队时延会发生什么？","relevant_chunk_ids":["sha256:2deee347b119e1907391627bb533512c34b26da5c47e88cfa614af0c2f694acf"],"filters":null}
+{"case_id":"finite-buffer-packet-loss","query":"有限容量队列为什么会丢包，丢包概率与流量强度有什么关系？","relevant_chunk_ids":["sha256:d4c552ca1ddab72a4c62c57bb38c24f75d9022c4e5402da54e05d39379c16498"],"filters":null}
+{"case_id":"end-to-end-throughput-bottleneck","query":"端到端文件传输吞吐量为什么由路径中的瓶颈链路决定？","relevant_chunk_ids":["sha256:c5cfceeb3d5498501579a90194d6e8c34e94bebed76da06de238759b1ccf299b"],"filters":null}
+{"case_id":"service-model-and-layering","query":"协议分层为什么有助于模块化，服务模型描述的是什么？","relevant_chunk_ids":["sha256:1c1e5d2b8900756a4ef694d65d3e68f736f8314c06174e823dab02a2cd79bb0d"],"filters":{"heading_prefix":["第1章 计算机网络和因特网","1.5 协议层次及其服务模型","1.5.1 分层的体系结构"]}}
+{"case_id":"internet-five-layer-stack","query":"因特网五层协议栈包含哪些层？","relevant_chunk_ids":["sha256:b498aed2633efc9cd727620b14a7e60ff610a9a4ae55620c7a82a960903a7f2a"],"filters":{"page_start":51,"page_end":52}}
+{"case_id":"tcp-udp-ip-layer-roles","query":"TCP、UDP 和 IP 在运输层与网络层分别提供什么服务？","relevant_chunk_ids":["sha256:cee6dddd5adef91f2143ad4d1179eddb0e264ecbfc626dc722387fec14b5940f"],"filters":null}
+{"case_id":"encapsulation","query":"封装时应用层报文如何依次变成报文段、数据报和帧？","relevant_chunk_ids":["sha256:16eda57b76ec3959212e9dd38a2f481f6f74d580241361eb435fa73e37a3aac4"],"filters":null}
+{"case_id":"dos-ddos-attacks","query":"DoS 的弱点攻击、带宽洪泛和连接洪泛各有什么特点，DDoS 为什么更难防？","relevant_chunk_ids":["sha256:3d0bdaccd7172a8d735580623424c47760f9a14e8b1dd42bd169a07e6811c403"],"filters":null}
+{"case_id":"packet-sniffing-and-ip-spoofing","query":"分组嗅探器如何获得敏感信息，什么是 IP 欺骗？","relevant_chunk_ids":["sha256:368706baf6a16085415f6ce956925bbed9e98e35b84860c26a9a5662fa14987e"],"filters":null}
+{"case_id":"endpoint-authentication-and-trust","query":"端点鉴别要解决什么问题，早期因特网为什么天生缺少安全性？","relevant_chunk_ids":["sha256:e5ce3d62288d89e2d37ebe1de7e7cfe00731cf20c23e72c131f4baef0a821fbf"],"filters":{"page_start":56,"page_end":57}}
+{"case_id":"arpanet-origin","query":"ARPAnet 是如何成为公共因特网祖先的，1969 年发生了什么？","relevant_chunk_ids":["sha256:6195b2c9d095471f2039b1259de460da36949050e5e27126ddb65855202104aa"],"filters":{"heading_prefix":["第1章 计算机网络和因特网","1.7 计算机网络和因特网的历史","1.7.1 分组交换的发展：1961～1972"]}}
+{"case_id":"tcp-udp-ip-history","query":"TCP、UDP 和 IP 为什么会在 20 世纪 70 年代从早期互联网络研究中形成？","relevant_chunk_ids":["sha256:6bb0c14d23f0aa055cfe65736cc287968674e4fb6f9512a333ec76b35b19cf65"],"filters":null}
+{"case_id":"web-commercialization","query":"20 世纪 90 年代万维网如何推动因特网走向家庭和商业化？","relevant_chunk_ids":["sha256:6e330f73d4134db583082cd440f8c0449ea5eaf9ddab8cddba090adc2059e117"],"filters":{"page_start":60,"page_end":60}}
+{"case_id":"cloud-and-broadband-development","query":"21 世纪的宽带、移动接入和云计算发展给因特网应用带来了什么变化？","relevant_chunk_ids":["sha256:4fab610330177233213fbc458ffde764817f5b50e03bb756c36c3b5b600bc73f"],"filters":null}
