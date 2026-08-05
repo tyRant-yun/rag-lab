@@ -16,8 +16,7 @@ RAG Lab 是一个本地知识库项目，用于把源文档转换成可追踪、
 10. Qdrant 向量存储、Dense Retriever 与检索 CLI；
 11. Dense 检索评估 CLI 与真实样本基线报告。
 
-重排（Reranker）、检索 API 和 Agent 集成属于后续阶段。Embedding 基线只
-记录统计信息，不保存原始向量。
+Agent 集成属于后续阶段。Embedding 基线只记录统计信息，不保存原始向量。
 
 ## 整体流程
 
@@ -104,12 +103,17 @@ src/rag_lab/
 │   ├── payload.py
 │   ├── qdrant.py
 │   └── cli.py
-└── evaluation/
-    ├── models.py
-    ├── serialization.py
-    ├── evaluator.py
-    ├── bm25_cli.py
-    └── dense_cli.py
+├── evaluation/
+│   ├── models.py
+│   ├── serialization.py
+│   ├── evaluator.py
+│   ├── bm25_cli.py
+│   ├── dense_cli.py
+│   ├── hybrid_cli.py
+│   └── rerank_cli.py
+└── api/
+    ├── app.py
+    └── cli.py
 ```
 
 `rag_lab.contracts` 存放共享产品契约，导入它不会加载 Normalizer、
@@ -440,7 +444,7 @@ overlap_char_count
   迁移、增量写入和删除不在当前阶段范围内。
 - `embedding_version` 记录模型标签、维度和查询指令哈希，但尚未
   记录 Ollama 本地模型文件的完整 digest。
-- 尚未实现持久化词法索引、检索 API 和 Agent。
+- 尚未实现持久化词法索引和 Agent 工具接入。
 - 完整第一章正式基线（43 页 / 69 Chunk / 33 条查询）已建立，见
   `docs/chapter-01-v4-baseline.md`；`chapter_01_smoke` 仍作为流程冒烟集保留。
 - `source_path` 保留绝对路径仅用于溯源，产物可再生成；换机或换目录后
@@ -580,11 +584,12 @@ chapter_01_smoke_ollama_embedding_1024.json
 7. 词法重排（Rerank）原型：`LexicalOverlapReranker`、
    `RerankedRetriever` 与 `search-rerank` / `evaluate-rerank` CLI，
    MRR 提升到 0.9848。
+8. 检索 API：`rag_lab.api.create_app` + `serve-api`，支持
+   bm25 / dense / hybrid / rerank 四种检索器与过滤参数。
 
 下一阶段依次实现：
 
-1. 检索 API；
-2. Agent 工具接入。
+1. Agent 工具接入。
 
 ## 第一章 V4 正式基线
 
@@ -692,3 +697,48 @@ evaluate-rerank `
 相比 Hybrid RRF（MRR 0.9343），重排把 MRR 提升到 0.9848：33 条中
 32 条首个相关结果排到第 1，仅 `end-systems` 排第 2。报告保存在
 `evaluations/computer_networking/baselines/chapter_01_v4_rerank_top{3,5}.json`。
+
+## 检索 API
+
+`rag_lab.api.create_app` 提供 FastAPI 应用，把 BM25 / Dense / Hybrid
+（RRF）/ Rerank 四种检索器暴露为 HTTP 接口。
+
+### 安装与启动
+
+```powershell
+python -m pip install -e ".[api]"
+
+serve-api `
+  --chunks "path\to\chunks.jsonl" `
+  --collection "computer-networking-chapter-01-v4" `
+  --port 8000
+```
+
+启动后访问：
+
+- Swagger UI：`http://127.0.0.1:8000/docs`
+- Health：`GET /health`
+- 检索：`POST /search`
+
+### 检索请求
+
+```json
+{
+  "query": "什么是端系统",
+  "retriever": "rerank",
+  "top_k": 5
+}
+```
+
+`retriever` 可选 `bm25` / `dense` / `hybrid` / `rerank`（默认 `rerank`）；
+可选的过滤与调参字段包括 `document_ids`、`heading_prefix`、
+`page_start`、`page_end`、`rrf_k`、`per_retriever_k`、`fetch_k` 与
+重排权重。响应为完整 `SearchResult` JSON。
+
+```powershell
+curl.exe -X POST http://127.0.0.1:8000/search `
+  -H "Content-Type: application/json" `
+  -d "{\"query\":\"什么是端系统\",\"retriever\":\"rerank\",\"top_k\":5}"
+```
+
+API 错误语义：参数校验失败返回 422，Ollama / Qdrant 上游失败返回 502。
