@@ -17,125 +17,12 @@ from rag_lab.tools.cli import (
     execute_main,
     schema_main,
 )
-
-
-def make_chunk(
-    *,
-    chunk_id: str,
-    ordinal: int,
-    index_text: str | None = None,
-) -> KnowledgeChunk:
-    return KnowledgeChunk(
-        chunk_id=chunk_id,
-        document_id="document-a",
-        content=index_text or f"正文 {chunk_id}",
-        index_text=index_text or f"索引正文 {chunk_id}",
-        heading_path=["第一章"],
-        page_start=ordinal,
-        page_end=ordinal,
-        ordinal=ordinal,
-        block_ids=[f"block-{ordinal}"],
-        source_path="book.pdf",
-        content_hash=f"hash-{ordinal}",
-        normalization_version="normalizer-v1",
-        chunking_version="chunker-v1",
-    )
-
-
-def write_chunks(
-    path: Path,
-    chunks: Sequence[KnowledgeChunk],
-) -> None:
-    path.write_text(
-        "\n".join(
-            json.dumps(
-                chunk.to_dict(),
-                ensure_ascii=False,
-            )
-            for chunk in chunks
-        )
-        + "\n",
-        encoding="utf-8",
-        newline="\n",
-    )
-
-
-class FakeEmbeddingProvider:
-    @property
-    def provider_name(self) -> str:
-        return "fake"
-
-    @property
-    def model_name(self) -> str:
-        return "fake-model"
-
-    @property
-    def dimensions(self) -> int:
-        return 2
-
-    @property
-    def embedding_version(self) -> str:
-        return "fake:fake-model:2:v1"
-
-    def embed_documents(
-        self,
-        texts: Sequence[str],
-    ) -> EmbeddingBatch:
-        del texts
-        raise AssertionError(
-            "tool CLI must not embed documents"
-        )
-
-    def embed_query(
-        self,
-        text: str,
-    ) -> EmbeddingVector:
-        del text
-        raise AssertionError(
-            "bm25 tool CLI must not embed queries"
-        )
-
-
-class FakeVectorStore:
-    @property
-    def collection_name(self) -> str:
-        return "tools-cli"
-
-    @property
-    def dimensions(self) -> int:
-        return 2
-
-    def ensure_collection(self) -> None:
-        raise AssertionError(
-            "tool CLI must not create collections"
-        )
-
-    def upsert(
-        self,
-        records: Sequence[VectorRecord],
-    ) -> VectorWriteReport:
-        del records
-        raise AssertionError(
-            "tool CLI must not index records"
-        )
-
-    def count(
-        self,
-        *,
-        filters: SearchFilters | None = None,
-    ) -> int:
-        del filters
-        return 1
-
-    def search(
-        self,
-        vector: EmbeddingVector,
-        *,
-        top_k: int = 5,
-        filters: SearchFilters | None = None,
-    ) -> list[VectorMatch]:
-        del vector, top_k, filters
-        return []
+from tests.helpers import (
+    FakeEmbeddingProvider,
+    FakeVectorStore,
+    make_chunk,
+    write_chunks,
+)
 
 
 def test_schema_main_prints_openai_schema(capsys):
@@ -186,7 +73,9 @@ def test_execute_main_runs_tool(
             ),
         ],
         provider_factory=lambda **_: FakeEmbeddingProvider(),
-        store_factory=lambda **_: FakeVectorStore(),
+        store_factory=lambda **_: FakeVectorStore(
+            collection_name="tools-cli"
+        ),
     )
 
     captured = capsys.readouterr()

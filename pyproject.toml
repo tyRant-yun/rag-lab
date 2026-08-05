@@ -19,6 +19,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8,<9",
+    # test_api.py requires FastAPI/uvicorn, so dev must cover the api extra.
     "fastapi>=0.115,<1",
     "uvicorn>=0.30,<1",
 ]

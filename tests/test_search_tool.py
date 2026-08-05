@@ -21,29 +21,12 @@ from rag_lab.tools import (
     SearchKnowledgeArguments,
     SearchKnowledgeTool,
 )
-
-
-def make_chunk(
-    *,
-    chunk_id: str,
-    ordinal: int,
-    index_text: str | None = None,
-) -> KnowledgeChunk:
-    return KnowledgeChunk(
-        chunk_id=chunk_id,
-        document_id="document-a",
-        content=index_text or f"正文 {chunk_id}",
-        index_text=index_text or f"索引正文 {chunk_id}",
-        heading_path=["第一章", "1.1 什么是因特网"],
-        page_start=ordinal,
-        page_end=ordinal,
-        ordinal=ordinal,
-        block_ids=[f"block-{ordinal}"],
-        source_path="book.pdf",
-        content_hash=f"hash-{ordinal}",
-        normalization_version="normalizer-v1",
-        chunking_version="chunker-v1",
-    )
+from tests.helpers import (
+    FakeEmbeddingProvider,
+    FakeVectorStore,
+    make_chunk,
+    write_chunks,
+)
 
 
 class FakeRetriever:
@@ -80,6 +63,7 @@ def make_result(
         chunk_id="chunk-tcp",
         ordinal=1,
         index_text="TCP 使用拥塞控制保证网络性能",
+        heading_path=["第一章", "1.1 什么是因特网"],
     )
     return SearchResult(
         query="TCP",
@@ -138,7 +122,7 @@ def test_execute_returns_bounded_hits():
         "1.1 什么是因特网",
     ]
     assert hit["page_start"] == 1
-    assert hit["source_path"] == "book.pdf"
+    assert "source_path" not in hit
     assert retriever.calls == [
         ("TCP", 3, SearchFilters())
     ]
@@ -223,104 +207,6 @@ def test_execute_rejects_empty_document_ids():
     assert retriever.calls == []
 
 
-class FakeEmbeddingProvider:
-    @property
-    def provider_name(self) -> str:
-        return "fake"
-
-    @property
-    def model_name(self) -> str:
-        return "fake-model"
-
-    @property
-    def dimensions(self) -> int:
-        return 2
-
-    @property
-    def embedding_version(self) -> str:
-        return "fake:fake-model:2:v1"
-
-    def embed_documents(
-        self,
-        texts: Sequence[str],
-    ) -> EmbeddingBatch:
-        del texts
-        raise AssertionError(
-            "tool search must not embed documents"
-        )
-
-    def embed_query(
-        self,
-        text: str,
-    ) -> EmbeddingVector:
-        del text
-        raise AssertionError(
-            "bm25 tool search must not embed queries"
-        )
-
-
-class FakeVectorStore:
-    @property
-    def collection_name(self) -> str:
-        return "tools-test"
-
-    @property
-    def dimensions(self) -> int:
-        return 2
-
-    def ensure_collection(self) -> None:
-        raise AssertionError(
-            "tool search must not create collections"
-        )
-
-    def upsert(
-        self,
-        records: Sequence[VectorRecord],
-    ) -> VectorWriteReport:
-        del records
-        raise AssertionError(
-            "tool search must not index records"
-        )
-
-    def count(
-        self,
-        *,
-        filters: SearchFilters | None = None,
-    ) -> int:
-        del filters
-        return 1
-
-    def search(
-        self,
-        vector: EmbeddingVector,
-        *,
-        top_k: int = 5,
-        filters: SearchFilters | None = None,
-    ) -> list[VectorMatch]:
-        del vector, top_k, filters
-        return []
-
-
-def write_chunks(
-    path: Path,
-    chunks: Sequence[KnowledgeChunk],
-) -> None:
-    import json
-
-    path.write_text(
-        "\n".join(
-            json.dumps(
-                chunk.to_dict(),
-                ensure_ascii=False,
-            )
-            for chunk in chunks
-        )
-        + "\n",
-        encoding="utf-8",
-        newline="\n",
-    )
-
-
 def test_toolset_build_exposes_schema_and_executes(
     tmp_path: Path,
 ):
@@ -342,7 +228,9 @@ def test_toolset_build_exposes_schema_and_executes(
         collection="tools-test",
         dimensions=2,
         provider_factory=lambda **_: FakeEmbeddingProvider(),
-        store_factory=lambda **_: FakeVectorStore(),
+        store_factory=lambda **_: FakeVectorStore(
+            collection_name="tools-test"
+        ),
     )
 
     assert toolset.to_openai_tools()[0][

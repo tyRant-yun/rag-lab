@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Literal
 
 from fastapi import FastAPI, HTTPException
 from pydantic import (
@@ -15,47 +14,27 @@ from pydantic import (
 
 from rag_lab.contracts import (
     SearchFilters,
-    SearchResult,
 )
 from rag_lab.embeddings import (
     OllamaEmbeddingError,
     OllamaEmbeddingProvider,
 )
-from rag_lab.retrieval import (
-    read_knowledge_chunks_jsonl,
-)
-from rag_lab.retrieval.bm25 import (
-    BM25Index,
-    BM25Retriever,
-)
-from rag_lab.retrieval.dense import (
-    DenseRetriever,
+from rag_lab.retrieval.factory import (
+    RetrieverName,
+    build_retrieval_components,
 )
 from rag_lab.retrieval.hybrid import (
     HybridRetriever,
 )
-from rag_lab.retrieval.lexical import (
-    LexicalAnalyzer,
-)
 from rag_lab.retrieval.rerank import (
-    LexicalOverlapReranker,
     RerankedRetriever,
 )
 from rag_lab.vector_store import (
     QdrantVectorStoreError,
-    VectorStore,
 )
 from rag_lab.vector_store.cli import (
     build_qdrant_store,
 )
-
-
-RetrieverName = Literal[
-    "bm25",
-    "dense",
-    "hybrid",
-    "rerank",
-]
 
 
 class SearchRequest(BaseModel):
@@ -107,6 +86,7 @@ class SearchRequest(BaseModel):
         ge=0,
         le=100,
     )
+    include_source_path: bool = False
     document_ids: list[str] | None = None
     heading_prefix: list[str] | None = None
     page_start: int | None = Field(
@@ -132,6 +112,39 @@ class SearchRequest(BaseModel):
         return self
 
 
+class SearchHitResponse(BaseModel):
+    """One sanitized hit in an API search response."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+
+    rank: int
+    score: float
+    retriever: str
+    chunk_id: str
+    content: str
+    heading_path: list[str]
+    page_start: int
+    page_end: int
+    source_path: str | None = None
+
+
+class SearchResponse(BaseModel):
+    """API search response without internal contract leakage."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+
+    query: str
+    hits: list[SearchHitResponse]
+    candidate_count: int
+    elapsed_ms: float
+    retriever: str
+    index_version: str
+
+
 def create_app(
     *,
     chunks_path: Path | str,
@@ -155,82 +168,24 @@ def create_app(
 ) -> FastAPI:
     """Build a retrieval API app over a chunks corpus and Qdrant."""
 
-    chunks = read_knowledge_chunks_jsonl(
-        Path(chunks_path)
-    )
-
-    if not chunks:
-        raise ValueError(
-            "chunks cannot be empty"
-        )
-
-    analyzer = LexicalAnalyzer(
-        user_words=user_words,
-        stopwords=stopwords,
-    )
-    index = BM25Index(
-        chunks=chunks,
-        analyzer=analyzer,
-    )
-    bm25 = BM25Retriever(index=index)
-
-    provider = provider_factory(
-        model_name=model,
-        dimensions=dimensions,
+    components = build_retrieval_components(
+        chunks_path=chunks_path,
+        collection=collection,
+        url=url,
+        model=model,
         host=host,
-        timeout_seconds=(
+        dimensions=dimensions,
+        embedding_timeout_seconds=(
             embedding_timeout_seconds
         ),
+        qdrant_timeout_seconds=(
+            qdrant_timeout_seconds
+        ),
+        user_words=user_words,
+        stopwords=stopwords,
+        provider_factory=provider_factory,
+        store_factory=store_factory,
     )
-    store: VectorStore = store_factory(
-        url=url,
-        collection_name=collection,
-        dimensions=dimensions,
-        timeout_seconds=qdrant_timeout_seconds,
-    )
-    dense = DenseRetriever(
-        provider=provider,
-        store=store,
-    )
-
-    def build_retriever(
-        name: RetrieverName,
-        *,
-        rrf_k: int,
-        per_retriever_k: int,
-        fetch_k: int,
-        rrf_weight: float,
-        overlap_weight: float,
-        heading_weight: float,
-    ):
-        if name == "bm25":
-            return bm25
-
-        if name == "dense":
-            return dense
-
-        hybrid = HybridRetriever(
-            bm25=bm25,
-            dense=dense,
-            rrf_k=rrf_k,
-            per_retriever_k=per_retriever_k,
-        )
-
-        if name == "hybrid":
-            return hybrid
-
-        reranker = LexicalOverlapReranker(
-            analyzer=analyzer,
-            rrf_weight=rrf_weight,
-            overlap_weight=overlap_weight,
-            heading_weight=heading_weight,
-        )
-
-        return RerankedRetriever(
-            retriever=hybrid,
-            reranker=reranker,
-            fetch_k=fetch_k,
-        )
 
     app = FastAPI(
         title="RAG Lab Retrieval API",
@@ -248,11 +203,11 @@ def create_app(
 
     @app.post(
         "/search",
-        response_model=SearchResult,
+        response_model=SearchResponse,
     )
     def search(
         payload: SearchRequest,
-    ) -> SearchResult:
+    ) -> SearchResponse:
         try:
             filters = SearchFilters(
                 document_ids=(
@@ -275,7 +230,7 @@ def create_app(
             ) from error
 
         try:
-            retriever = build_retriever(
+            retriever = components.retriever(
                 payload.retriever,
                 rrf_k=payload.rrf_k,
                 per_retriever_k=(
@@ -291,10 +246,40 @@ def create_app(
                 ),
             )
 
-            return retriever.search(
+            result = retriever.search(
                 payload.query,
                 top_k=payload.top_k,
                 filters=filters,
+            )
+
+            return SearchResponse(
+                query=result.query,
+                hits=[
+                    SearchHitResponse(
+                        rank=hit.rank,
+                        score=hit.score,
+                        retriever=hit.retriever,
+                        chunk_id=hit.chunk.chunk_id,
+                        content=hit.chunk.content,
+                        heading_path=list(
+                            hit.chunk.heading_path
+                        ),
+                        page_start=hit.chunk.page_start,
+                        page_end=hit.chunk.page_end,
+                        source_path=(
+                            hit.chunk.source_path
+                            if payload.include_source_path
+                            else None
+                        ),
+                    )
+                    for hit in result.hits
+                ],
+                candidate_count=(
+                    result.candidate_count
+                ),
+                elapsed_ms=result.elapsed_ms,
+                retriever=result.retriever,
+                index_version=result.index_version,
             )
         except (
             TypeError,

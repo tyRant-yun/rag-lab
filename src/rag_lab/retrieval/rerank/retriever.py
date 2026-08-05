@@ -12,7 +12,6 @@ from rag_lab.retrieval.rerank.protocol import (
 class RerankedRetriever:
     """Run a base retriever with a wider window, then rerank to top_k."""
 
-    RETRIEVER_NAME = "rerank"
     DEFAULT_FETCH_K = 20
 
     def __init__(

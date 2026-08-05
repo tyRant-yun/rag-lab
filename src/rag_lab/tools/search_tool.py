@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Literal, Protocol
+from typing import Protocol
 
 from pydantic import (
     BaseModel,
@@ -21,6 +21,9 @@ from rag_lab.embeddings import (
 )
 from rag_lab.vector_store import (
     QdrantVectorStoreError,
+)
+from rag_lab.retrieval.factory import (
+    RetrieverName,
 )
 
 
@@ -53,12 +56,7 @@ class SearchKnowledgeArguments(BaseModel):
         ge=1,
         le=10,
     )
-    retriever: Literal[
-        "bm25",
-        "dense",
-        "hybrid",
-        "rerank",
-    ] = "rerank"
+    retriever: RetrieverName = "rerank"
     document_ids: list[str] | None = None
     heading_prefix: list[str] | None = None
     page_start: int | None = Field(
@@ -100,7 +98,6 @@ def serialize_hit(
         "heading_path": list(chunk.heading_path),
         "page_start": chunk.page_start,
         "page_end": chunk.page_end,
-        "source_path": chunk.source_path,
     }
 
 

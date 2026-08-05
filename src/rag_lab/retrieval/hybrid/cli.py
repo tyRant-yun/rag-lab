@@ -18,21 +18,14 @@ from rag_lab.embeddings import (
     OllamaEmbeddingError,
     OllamaEmbeddingProvider,
 )
-from rag_lab.retrieval import (
-    read_knowledge_chunks_jsonl,
-)
-from rag_lab.retrieval.bm25 import (
-    BM25Index,
-    BM25Retriever,
-)
-from rag_lab.retrieval.dense import (
-    DenseRetriever,
+from rag_lab.retrieval.factory import (
+    build_retrieval_components,
 )
 from rag_lab.retrieval.hybrid import (
     HybridRetriever,
 )
-from rag_lab.retrieval.lexical import (
-    LexicalAnalyzer,
+from rag_lab.retrieval.rendering import (
+    render_human_result,
 )
 from rag_lab.vector_store import (
     QdrantVectorStoreError,
@@ -214,50 +207,28 @@ def main(
     arguments = parser.parse_args(argv)
 
     try:
-        chunks = read_knowledge_chunks_jsonl(
-            arguments.chunks
-        )
-
-        if not chunks:
-            raise ValueError(
-                "chunks cannot be empty"
-            )
-
-        analyzer = LexicalAnalyzer(
-            user_words=arguments.user_words or (),
-            stopwords=arguments.stopwords or (),
-        )
-        index = BM25Index(
-            chunks=chunks,
-            analyzer=analyzer,
-        )
-        bm25 = BM25Retriever(index=index)
-
-        provider = provider_factory(
-            model_name=arguments.model,
-            dimensions=arguments.dimensions,
+        components = build_retrieval_components(
+            chunks_path=arguments.chunks,
+            collection=arguments.collection,
+            url=arguments.url,
+            model=arguments.model,
             host=arguments.host,
-            timeout_seconds=(
+            dimensions=arguments.dimensions,
+            embedding_timeout_seconds=(
                 arguments
                 .embedding_timeout_seconds
             ),
-        )
-        store = store_factory(
-            url=arguments.url,
-            collection_name=arguments.collection,
-            dimensions=arguments.dimensions,
-            timeout_seconds=(
+            qdrant_timeout_seconds=(
                 arguments
                 .qdrant_timeout_seconds
             ),
+            user_words=arguments.user_words or (),
+            stopwords=arguments.stopwords or (),
+            provider_factory=provider_factory,
+            store_factory=store_factory,
         )
-        dense = DenseRetriever(
-            provider=provider,
-            store=store,
-        )
-        retriever = HybridRetriever(
-            bm25=bm25,
-            dense=dense,
+        retriever = components.retriever(
+            "hybrid",
             rrf_k=arguments.rrf_k,
             per_retriever_k=(
                 arguments.per_retriever_k
@@ -296,58 +267,9 @@ def main(
             )
         )
     else:
-        print(_render_human_result(result))
+        print(render_human_result(result))
 
     return 0
-
-
-def _render_human_result(
-    result: SearchResult,
-) -> str:
-    lines = [
-        f"Query: {result.query}",
-        f"Retriever: {result.retriever}",
-        f"Index version: {result.index_version}",
-        f"Candidates: {result.candidate_count}",
-        f"Hits: {len(result.hits)}",
-        f"Elapsed: {result.elapsed_ms:.2f} ms",
-    ]
-
-    if not result.hits:
-        lines.extend(
-            [
-                "",
-                "No matching chunks.",
-            ]
-        )
-        return "\n".join(lines)
-
-    for hit in result.hits:
-        chunk = hit.chunk
-        heading = " > ".join(
-            chunk.heading_path
-        )
-
-        lines.extend(
-            [
-                "",
-                (
-                    f"[{hit.rank}] "
-                    f"score={hit.score:.6f}"
-                ),
-                f"chunk_id={chunk.chunk_id}",
-                (
-                    f"pages={chunk.page_start}-"
-                    f"{chunk.page_end}"
-                ),
-                f"heading={heading}",
-                f"source={chunk.source_path}",
-                "",
-                chunk.content,
-            ]
-        )
-
-    return "\n".join(lines)
 
 
 if __name__ == "__main__":

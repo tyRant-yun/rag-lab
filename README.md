@@ -53,7 +53,7 @@ Markdown 文件只用于人工检查，JSONL 文件才是下游机器接口。
 - **DenseRetriever**：负责查询向量化、Qdrant 向量检索和 `SearchResult` 转换。
 - **Hybrid Retriever**：使用 Reciprocal Rank Fusion（RRF）融合
   BM25 与 Dense 的排名结果。
-- **Agent**：后续通过稳定的检索工具使用知识库。
+- **Agent**：通过 `search_knowledge` 工具使用知识库。
 
 Chunker 只读取 `blocks.jsonl`，不读取 PDF、Docling JSON 或人工审阅 Markdown。
 
@@ -449,7 +449,7 @@ overlap_char_count
   迁移、增量写入和删除不在当前阶段范围内。
 - `embedding_version` 记录模型标签、维度和查询指令哈希，但尚未
   记录 Ollama 本地模型文件的完整 digest。
-- 尚未实现持久化词法索引和 Agent 工具接入。
+- 尚未实现持久化词法索引。
 - 完整第一章正式基线（43 页 / 69 Chunk / 33 条查询）已建立，见
   `docs/chapter-01-v4-baseline.md`；`chapter_01_smoke` 仍作为流程冒烟集保留。
 - `source_path` 保留绝对路径仅用于溯源，产物可再生成；换机或换目录后
@@ -742,7 +742,8 @@ serve-api `
 `retriever` 可选 `bm25` / `dense` / `hybrid` / `rerank`（默认 `rerank`）；
 可选的过滤与调参字段包括 `document_ids`、`heading_prefix`、
 `page_start`、`page_end`、`rrf_k`、`per_retriever_k`、`fetch_k` 与
-重排权重。响应为完整 `SearchResult` JSON。
+重排权重。响应为脱敏后的检索结果 JSON（默认不返回 `source_path`，
+如需溯源可传 `"include_source_path": true`）。
 
 ```powershell
 curl.exe -X POST http://127.0.0.1:8000/search `

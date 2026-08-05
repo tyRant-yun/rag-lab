@@ -225,4 +225,13 @@ def execute_main(
 
 
 if __name__ == "__main__":
-    raise SystemExit(execute_main())
+    if len(sys.argv) > 1 and sys.argv[1] == "schema":
+        raise SystemExit(schema_main(sys.argv[2:]))
+
+    raise SystemExit(
+        execute_main(
+            sys.argv[1:]
+            if len(sys.argv) > 1
+            else None
+        )
+    )
