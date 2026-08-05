@@ -584,6 +584,112 @@ def test_multiple_chapters_reset_heading_path(
     )
 
 
+def test_repeated_same_chapter_marker_keeps_heading_path(
+    tmp_path: Path,
+):
+    source = tmp_path / "source.pdf"
+    source.write_bytes(b"fake-pdf")
+    document = {
+        "pages": {
+            str(page): {
+                "page_no": page,
+                "size": {
+                    "width": 500,
+                    "height": 700,
+                },
+            }
+            for page in (1, 2)
+        },
+        "texts": [
+            text_item(
+                0,
+                text="第 1 章",
+                page=1,
+                top=680,
+                label="page_header",
+                content_layer="furniture",
+            ),
+            text_item(
+                1,
+                text="第一章标题",
+                page=1,
+                top=640,
+                label="section_header",
+            ),
+            text_item(
+                2,
+                text="1. 1 第一节",
+                page=1,
+                top=600,
+                label="section_header",
+            ),
+            text_item(
+                3,
+                text="第一页正文。",
+                page=1,
+                top=540,
+            ),
+            text_item(
+                4,
+                text="第 1 章",
+                page=2,
+                top=680,
+                label="page_header",
+                content_layer="furniture",
+            ),
+            text_item(
+                5,
+                text="历史事件",
+                page=2,
+                top=640,
+                label="section_header",
+            ),
+            text_item(
+                6,
+                text="1. 2 第二节",
+                page=2,
+                top=600,
+                label="section_header",
+            ),
+            text_item(
+                7,
+                text="第二页正文。",
+                page=2,
+                top=540,
+            ),
+        ],
+    }
+
+    result = normalize_docling_document(
+        docling_document=document,
+        source_path=source,
+        normalization_version="1.0.0",
+    )
+
+    second_section = next(
+        block
+        for block in result.blocks
+        if block.text == "1.2 第二节"
+    )
+    false_heading = next(
+        block
+        for block in result.blocks
+        if block.text == "历史事件"
+    )
+
+    assert second_section.heading_path == [
+        "第1章 第一章标题",
+        "1.2 第二节",
+    ]
+    assert false_heading.block_type == (
+        BlockType.PARAGRAPH.value
+    )
+    assert false_heading.heading_path == [
+        "第1章 第一章标题",
+        "1.1 第一节",
+    ]
+
+
 def test_outputs_are_deterministic(
     tmp_path: Path,
 ):

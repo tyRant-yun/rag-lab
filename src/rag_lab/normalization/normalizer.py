@@ -754,6 +754,7 @@ def _build_candidates(
     pending_chapter_marker: str | None = (
         None
     )
+    active_chapter_marker: str | None = None
     events: list[
         tuple[
             tuple[int, float, float, int, int],
@@ -791,8 +792,12 @@ def _build_candidates(
 
     for _, event in sorted(events):
         if isinstance(event, _ChapterMarker):
+            if event.text == active_chapter_marker:
+                continue
+
             pending_chapter_marker = event.text
             heading_stack = []
+            active_chapter_marker = event.text
             continue
 
         block = event
