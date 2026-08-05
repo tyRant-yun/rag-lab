@@ -20,6 +20,9 @@ dependencies = [
 dev = [
     "pytest>=8,<9",
 ]
+conversion = [
+    "docling>=2,<3",
+]
 
 [project.scripts]
 normalize-docling = "rag_lab.normalization.cli:main"

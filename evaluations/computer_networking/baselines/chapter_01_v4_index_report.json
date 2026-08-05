@@ -1,0 +1,8 @@
+{
+  "collection_name": "computer-networking-chapter-01-v4",
+  "dimensions": 1024,
+  "input_count": 69,
+  "upserted_count": 69,
+  "elapsed_ms": 376.7766000237316,
+  "embedding_version": "ollama:qwen3-embedding:0.6b:dimensions-1024:query-v1-ec1f1563040d"
+}
