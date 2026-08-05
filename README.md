@@ -427,6 +427,44 @@ overlap_char_count
 - 当前评估集只有第 19–23 页的 8 个 Chunk 和 7 个查询，只能作为
   流程冒烟基线，不能代表完整第一章的检索质量。
 
+### 第 1 章候选检索基线（待人工终审）
+
+已将同一教材的**物理 PDF 第 19–61 页**转换为本地、被 Git 忽略的候选数据
+集，并使用 `max_chars=1200`、`overlap_chars=120` 生成 69 个 Chunk。对应的
+Qdrant collection 是 `computer-networking-chapter-01-v1`，使用
+`qwen3-embedding:0.6b`、1024 维 Cosine 向量；重复索引同一 69 个 Chunk 后
+point 数仍为 69。
+
+可提交的候选标注、逐条审阅清单、检索对比与六份结构化报告位于：
+
+```text
+evaluations/computer_networking/chapter_01.jsonl
+evaluations/computer_networking/chapter_01_review.md
+evaluations/computer_networking/chapter_01_retrieval_comparison.md
+evaluations/computer_networking/baselines/chapter_01_bm25_top{1,3,5}.json
+evaluations/computer_networking/baselines/chapter_01_dense_top{1,3,5}.json
+```
+
+39 条正向 case 覆盖因特网、接入与物理媒体、交换、性能、分层、安全和历史，
+其中也包含 document、heading 和页码 filters。每条标签均基于 Chunk 内容及其
+标题/页码审阅而成，尚未由用户完成最终人工终审；它们不是最终金标准，也不包含
+无答案问题。
+
+| Retriever | Top K | Hit@K | Mean Recall@K | MRR |
+| --- | ---: | ---: | ---: | ---: |
+| BM25 | 1 | 0.769231 | 0.769231 | 0.769231 |
+| BM25 | 3 | 0.948718 | 0.948718 | 0.854701 |
+| BM25 | 5 | 0.974359 | 0.974359 | 0.861111 |
+| Dense | 1 | 0.794872 | 0.794872 | 0.794872 |
+| Dense | 3 | 1.000000 | 1.000000 | 0.888889 |
+| Dense | 5 | 1.000000 | 1.000000 | 0.888889 |
+
+Dense 报告的稳定 index version 为
+`dense-v1:computer-networking-chapter-01-v1:ollama:qwen3-embedding:0.6b:dimensions-1024:query-v1-ec1f1563040d`。
+所有报告均不保存原始向量，并已通过 `RetrievalEvaluationReport` 严格契约验证。
+拼错 collection 的 `search-dense` 和 `evaluate-dense` 均返回 exit code 2，且
+不会创建空 collection。
+
 ## 真实样本回归
 
 使用一本计算机网络教材的 PDF 第 19–23 页进行本地回归：

@@ -1,0 +1,673 @@
+{
+  "dataset_id": "computer-networking-chapter-01-candidate-v1",
+  "retriever": "dense",
+  "index_version": "dense-v1:computer-networking-chapter-01-v1:ollama:qwen3-embedding:0.6b:dimensions-1024:query-v1-ec1f1563040d",
+  "top_k": 3,
+  "case_results": [
+    {
+      "case_id": "internet-two-descriptions",
+      "query": "教材从哪两种角度说明什么是因特网？",
+      "relevant_chunk_ids": [
+        "sha256:44aaa7b91ad4115eb466f9566942db2668648dfed3c2175a728c8838c4434bad"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:44aaa7b91ad4115eb466f9566942db2668648dfed3c2175a728c8838c4434bad",
+        "sha256:c520f6df79e9c087db40d101e980a8e8ea80b827baa13375749e4eb5bde2564c",
+        "sha256:a590492ad99407717c26395b9623d4001c110ed478ecca605131b956b8716390"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "end-system-and-host",
+      "query": "端系统为什么也称为主机？通常包括哪些设备？",
+      "relevant_chunk_ids": [
+        "sha256:5e8fbdb98058f4edf54291c598774efcf8d4f72e66e27d530a4cd8dae0c1ecef"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:f40ab5e81236e1f6c1af3c23da80ac1ef32e48dce6a26d058c35131aaf019a8e",
+        "sha256:ce546870c8ad7a5e1f6c4ef0d5aa80380495468da5dc63081fa9f9e2c37b1ac6",
+        "sha256:5e8fbdb98058f4edf54291c598774efcf8d4f72e66e27d530a4cd8dae0c1ecef"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 3,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.3333333333333333
+    },
+    {
+      "case_id": "isp-role-and-interconnection",
+      "query": "ISP 如何让端系统接入因特网，并且为什么 ISP 之间必须互联？",
+      "relevant_chunk_ids": [
+        "sha256:d889bb2e2dc3c586ebf57b312a84deea669612e5dbfd70314fdc02a208e0b449"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:980bae50a794732779f693592f76e35235f6e19f68bb560d1b9d95fb36127e18",
+        "sha256:d889bb2e2dc3c586ebf57b312a84deea669612e5dbfd70314fdc02a208e0b449",
+        "sha256:b7a10ad7851ca111f9808be4a820cc1c1a11cfa01626ad9976533306a37eee36"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 2,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.5
+    },
+    {
+      "case_id": "tcp-ip-meaning",
+      "query": "TCP 和 IP 分别是什么，TCP/IP 这个统称指什么？",
+      "relevant_chunk_ids": [
+        "sha256:d889bb2e2dc3c586ebf57b312a84deea669612e5dbfd70314fdc02a208e0b449"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:61db585dcdb48ea3a8ed3a11c1efbb19a8d885dff6b3b7440d79003fc805562c",
+        "sha256:d889bb2e2dc3c586ebf57b312a84deea669612e5dbfd70314fdc02a208e0b449",
+        "sha256:6bb0c14d23f0aa055cfe65736cc287968674e4fb6f9512a333ec76b35b19cf65"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 2,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.5
+    },
+    {
+      "case_id": "ietf-rfc-standards",
+      "query": "IETF 与 RFC 在因特网标准制定中分别扮演什么角色？",
+      "relevant_chunk_ids": [
+        "sha256:61db585dcdb48ea3a8ed3a11c1efbb19a8d885dff6b3b7440d79003fc805562c"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:61db585dcdb48ea3a8ed3a11c1efbb19a8d885dff6b3b7440d79003fc805562c",
+        "sha256:9483369cb0dc100902784d99087b2c0110879fd136882174ba099c5d3884bcf8",
+        "sha256:6bb0c14d23f0aa055cfe65736cc287968674e4fb6f9512a333ec76b35b19cf65"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "distributed-applications-and-socket",
+      "query": "分布式因特网应用运行在哪里，程序通过什么接口请求网络交付数据？",
+      "relevant_chunk_ids": [
+        "sha256:4ecab02e7617298be1bc36ae4fa2a30dae468f304b5f2484808d40102ec641df"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:4ecab02e7617298be1bc36ae4fa2a30dae468f304b5f2484808d40102ec641df",
+        "sha256:c520f6df79e9c087db40d101e980a8e8ea80b827baa13375749e4eb5bde2564c",
+        "sha256:d889bb2e2dc3c586ebf57b312a84deea669612e5dbfd70314fdc02a208e0b449"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "network-protocol-definition",
+      "query": "网络协议如何定义通信实体交换报文时的格式、顺序和操作？",
+      "relevant_chunk_ids": [
+        "sha256:2c4eeea0155eae37f6573f73e15ecee0fa314b27e75c51dd29be4897d2cdc20d"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:2c4eeea0155eae37f6573f73e15ecee0fa314b27e75c51dd29be4897d2cdc20d",
+        "sha256:1d9c484b6bbb3e6041267252213faff7e8c37abe81f7c27a4a6ffe78fe97cf0a",
+        "sha256:f40ab5e81236e1f6c1af3c23da80ac1ef32e48dce6a26d058c35131aaf019a8e"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "access-network-edge-router",
+      "query": "什么是接入网，边缘路由器在端系统到远程端系统的路径中处于什么位置？",
+      "relevant_chunk_ids": [
+        "sha256:edb0403ca7851ca3b8d20e822dbbd6d51376b20d43c61831b0faf234b28849c1"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:edb0403ca7851ca3b8d20e822dbbd6d51376b20d43c61831b0faf234b28849c1",
+        "sha256:7f7e55947a561da87e3ef9b5396e114bb8d8767b8cd43263852a25638fdad5cd",
+        "sha256:25816e34588254872e8087e8ad89a28871739cc7f99567e639bcbb9cbfb0edc1"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "dsl-access",
+      "query": "家庭 DSL 接入中 DSLAM 和电话线各自做什么？",
+      "relevant_chunk_ids": [
+        "sha256:edb0403ca7851ca3b8d20e822dbbd6d51376b20d43c61831b0faf234b28849c1"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:25816e34588254872e8087e8ad89a28871739cc7f99567e639bcbb9cbfb0edc1",
+        "sha256:edb0403ca7851ca3b8d20e822dbbd6d51376b20d43c61831b0faf234b28849c1",
+        "sha256:32f39094e0a9f08c2c9a37b3d13ec4153928cdee317e1a461f306583c4ce3b2f"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 2,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.5
+    },
+    {
+      "case_id": "cable-shared-medium",
+      "query": "为什么多个家庭同时使用电缆因特网时，实际下行速率可能下降？",
+      "relevant_chunk_ids": [
+        "sha256:32f39094e0a9f08c2c9a37b3d13ec4153928cdee317e1a461f306583c4ce3b2f"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:32f39094e0a9f08c2c9a37b3d13ec4153928cdee317e1a461f306583c4ce3b2f",
+        "sha256:25816e34588254872e8087e8ad89a28871739cc7f99567e639bcbb9cbfb0edc1",
+        "sha256:fd371a27b6a36491b0a8ae950dc043082605aba00c79c6c60ac89957b064d063"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "ftth-pon",
+      "query": "FTTH 的 PON 体系结构中 ONT、分配器和 OLT 如何连接家庭与中心局？",
+      "relevant_chunk_ids": [
+        "sha256:32f39094e0a9f08c2c9a37b3d13ec4153928cdee317e1a461f306583c4ce3b2f"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:32f39094e0a9f08c2c9a37b3d13ec4153928cdee317e1a461f306583c4ce3b2f",
+        "sha256:7f7e55947a561da87e3ef9b5396e114bb8d8767b8cd43263852a25638fdad5cd",
+        "sha256:edb0403ca7851ca3b8d20e822dbbd6d51376b20d43c61831b0faf234b28849c1"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "wifi-and-cellular-access",
+      "query": "WiFi 与 4G/5G 广域蜂窝接入在覆盖范围和接入方式上有什么区别？",
+      "relevant_chunk_ids": [
+        "sha256:b439ee91b741a638d5ccd5605c85b675d6e36e0a469289ca4829b50234baff67"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:b439ee91b741a638d5ccd5605c85b675d6e36e0a469289ca4829b50234baff67",
+        "sha256:7f7e55947a561da87e3ef9b5396e114bb8d8767b8cd43263852a25638fdad5cd",
+        "sha256:edb0403ca7851ca3b8d20e822dbbd6d51376b20d43c61831b0faf234b28849c1"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "guided-and-unguided-media",
+      "query": "导引型媒介和非导引型媒介如何区分？请给出各自的例子。",
+      "relevant_chunk_ids": [
+        "sha256:9f07a03f4a2ca541bc8c1dbcd4635c542bf47c6f2a7b7a9a4b5209be9c8caa43"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:9f07a03f4a2ca541bc8c1dbcd4635c542bf47c6f2a7b7a9a4b5209be9c8caa43",
+        "sha256:fd371a27b6a36491b0a8ae950dc043082605aba00c79c6c60ac89957b064d063",
+        "sha256:a78c8118e2ffcce59b918f555b0ff6ec0edec3a76ff2a5a76bcffb57b4158fde"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "optical-fiber-properties",
+      "query": "光纤为什么适合长途和主干网络传输？",
+      "relevant_chunk_ids": [
+        "sha256:fd371a27b6a36491b0a8ae950dc043082605aba00c79c6c60ac89957b064d063"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:fd371a27b6a36491b0a8ae950dc043082605aba00c79c6c60ac89957b064d063",
+        "sha256:9f07a03f4a2ca541bc8c1dbcd4635c542bf47c6f2a7b7a9a4b5209be9c8caa43",
+        "sha256:32f39094e0a9f08c2c9a37b3d13ec4153928cdee317e1a461f306583c4ce3b2f"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "satellite-propagation-delay",
+      "query": "同步卫星链路为什么会带来较大的传播时延，LEO 卫星有什么不同？",
+      "relevant_chunk_ids": [
+        "sha256:a78c8118e2ffcce59b918f555b0ff6ec0edec3a76ff2a5a76bcffb57b4158fde"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:a78c8118e2ffcce59b918f555b0ff6ec0edec3a76ff2a5a76bcffb57b4158fde",
+        "sha256:fd371a27b6a36491b0a8ae950dc043082605aba00c79c6c60ac89957b064d063"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "network-core-definition",
+      "query": "网络核心由哪些部分构成，它的基本作用是什么？",
+      "relevant_chunk_ids": [
+        "sha256:417b37590b31a85b8d807fb92344c9fad7ddd98c85596aa13785e91aef72b1a0"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:417b37590b31a85b8d807fb92344c9fad7ddd98c85596aa13785e91aef72b1a0",
+        "sha256:980bae50a794732779f693592f76e35235f6e19f68bb560d1b9d95fb36127e18",
+        "sha256:fbf3ee1bc1fe7506459299383dc5e4a75cf742b8aaf709da54cd09454e61706f"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "store-and-forward",
+      "query": "什么是存储转发传输，为什么路由器必须先收到整个分组才能转发？",
+      "relevant_chunk_ids": [
+        "sha256:55ef3f7bfd1a54420370b18be41cab13dece76fa3639d2b07e420ad89a65e0e7"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:55ef3f7bfd1a54420370b18be41cab13dece76fa3639d2b07e420ad89a65e0e7",
+        "sha256:f904ed1d71ad2d654280410dcbe29fc75e0f342eb724c5bf2f437f90d00b7f18",
+        "sha256:6a8bd5ffbf5265030e9243ad91995b6503cb98ed2270fc825ce7b44cb7272940"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "queueing-and-packet-loss",
+      "query": "输出缓存中的排队时延和分组丢失是怎样产生的？",
+      "relevant_chunk_ids": [
+        "sha256:5ee75327799efe37d3afb22231125491f3fa81c0853d966031be8e1dee7636b1"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:5ee75327799efe37d3afb22231125491f3fa81c0853d966031be8e1dee7636b1",
+        "sha256:2deee347b119e1907391627bb533512c34b26da5c47e88cfa614af0c2f694acf",
+        "sha256:f904ed1d71ad2d654280410dcbe29fc75e0f342eb724c5bf2f437f90d00b7f18"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "forwarding-table-and-routing",
+      "query": "路由器怎样利用目的 IP 地址和转发表选择输出链路？",
+      "relevant_chunk_ids": [
+        "sha256:f904ed1d71ad2d654280410dcbe29fc75e0f342eb724c5bf2f437f90d00b7f18"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:6a8bd5ffbf5265030e9243ad91995b6503cb98ed2270fc825ce7b44cb7272940",
+        "sha256:f904ed1d71ad2d654280410dcbe29fc75e0f342eb724c5bf2f437f90d00b7f18",
+        "sha256:d889bb2e2dc3c586ebf57b312a84deea669612e5dbfd70314fdc02a208e0b449"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 2,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.5
+    },
+    {
+      "case_id": "circuit-switching-reservation",
+      "query": "电路交换与分组交换在资源预留和等待方面有什么根本差异？",
+      "relevant_chunk_ids": [
+        "sha256:d8e7dd3779431d447ca0b8249296c2014e220a8539cb5e60ebd560ddbb54e3f2"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:d8e7dd3779431d447ca0b8249296c2014e220a8539cb5e60ebd560ddbb54e3f2",
+        "sha256:6dd1662c9826fbc5ce45748e705cc4aaacfdeb73122e98d5c484546825df9bac",
+        "sha256:d3c6f2cb3f8556dffe31e96c6c2b1151a495304b115d1db2539d3c53cf0af5d6"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "fdm-versus-tdm",
+      "query": "FDM 和 TDM 分别怎样把一条链路的资源分给多条电路？",
+      "relevant_chunk_ids": [
+        "sha256:1b646f30e10fbce275816a9577e92db77578f9d81a86d9a3e48a62bdc987610c"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:1b646f30e10fbce275816a9577e92db77578f9d81a86d9a3e48a62bdc987610c",
+        "sha256:d3c6f2cb3f8556dffe31e96c6c2b1151a495304b115d1db2539d3c53cf0af5d6",
+        "sha256:004dab878c27f73de8ec7aff3681d9d493c1e25cfd0e1077016066d62351f07f"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "packet-switching-statistical-sharing",
+      "query": "为什么面对突发、间歇业务时，分组交换能比预留电路更有效地共享带宽？",
+      "relevant_chunk_ids": [
+        "sha256:004dab878c27f73de8ec7aff3681d9d493c1e25cfd0e1077016066d62351f07f"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:004dab878c27f73de8ec7aff3681d9d493c1e25cfd0e1077016066d62351f07f",
+        "sha256:6dd1662c9826fbc5ce45748e705cc4aaacfdeb73122e98d5c484546825df9bac",
+        "sha256:d3c6f2cb3f8556dffe31e96c6c2b1151a495304b115d1db2539d3c53cf0af5d6"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "isp-peering-ixp",
+      "query": "ISP 的多宿、对等和 IXP 分别解决什么互联问题？",
+      "relevant_chunk_ids": [
+        "sha256:fbf3ee1bc1fe7506459299383dc5e4a75cf742b8aaf709da54cd09454e61706f"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:fbf3ee1bc1fe7506459299383dc5e4a75cf742b8aaf709da54cd09454e61706f",
+        "sha256:980bae50a794732779f693592f76e35235f6e19f68bb560d1b9d95fb36127e18",
+        "sha256:cb3753143ecd7c7e733c569dc2c7cb774f7df5558455af3a1b4a2da7ec78eec6"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "node-delay-components",
+      "query": "一个分组在节点上会经历哪四类主要时延？",
+      "relevant_chunk_ids": [
+        "sha256:ed25f06995ed26ae19aaa0f65fa005df4679f2536fdb5cfbf6a2fbfc41a3f6de"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:ed25f06995ed26ae19aaa0f65fa005df4679f2536fdb5cfbf6a2fbfc41a3f6de",
+        "sha256:3b301e6c6edac2097677315f991af6434b1961d4a6a35631b8081a21dbc11e7e",
+        "sha256:cea7eaae09ad8083388d3400c6a969cfecc64dc68709ed74bcc16de36cf8cdfa"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "transmission-versus-propagation-delay",
+      "query": "传输时延 L/R 与传播时延 d/s 的决定因素分别是什么？",
+      "relevant_chunk_ids": [
+        "sha256:e8b30aa05254e3e8aaec90803740d163661c4a6299af3111019931b666540747"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:e8b30aa05254e3e8aaec90803740d163661c4a6299af3111019931b666540747",
+        "sha256:3b301e6c6edac2097677315f991af6434b1961d4a6a35631b8081a21dbc11e7e",
+        "sha256:cea7eaae09ad8083388d3400c6a969cfecc64dc68709ed74bcc16de36cf8cdfa"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "traffic-intensity",
+      "query": "流量强度 La/R 接近或超过 1 时，排队时延会发生什么？",
+      "relevant_chunk_ids": [
+        "sha256:2deee347b119e1907391627bb533512c34b26da5c47e88cfa614af0c2f694acf"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:d4c552ca1ddab72a4c62c57bb38c24f75d9022c4e5402da54e05d39379c16498",
+        "sha256:2deee347b119e1907391627bb533512c34b26da5c47e88cfa614af0c2f694acf",
+        "sha256:e8b30aa05254e3e8aaec90803740d163661c4a6299af3111019931b666540747"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 2,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.5
+    },
+    {
+      "case_id": "finite-buffer-packet-loss",
+      "query": "有限容量队列为什么会丢包，丢包概率与流量强度有什么关系？",
+      "relevant_chunk_ids": [
+        "sha256:d4c552ca1ddab72a4c62c57bb38c24f75d9022c4e5402da54e05d39379c16498"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:d4c552ca1ddab72a4c62c57bb38c24f75d9022c4e5402da54e05d39379c16498",
+        "sha256:2deee347b119e1907391627bb533512c34b26da5c47e88cfa614af0c2f694acf",
+        "sha256:cd9237536fd5944e7e774f83230b684399e143dc14cb189d2d424321c50ed5aa"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "end-to-end-throughput-bottleneck",
+      "query": "端到端文件传输吞吐量为什么由路径中的瓶颈链路决定？",
+      "relevant_chunk_ids": [
+        "sha256:c5cfceeb3d5498501579a90194d6e8c34e94bebed76da06de238759b1ccf299b"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:cd9237536fd5944e7e774f83230b684399e143dc14cb189d2d424321c50ed5aa",
+        "sha256:543aeffd5eb774ac6c2c1564cd3ee1b0d7556ed4e77bf23cc092fe92860b48a7",
+        "sha256:c5cfceeb3d5498501579a90194d6e8c34e94bebed76da06de238759b1ccf299b"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 3,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.3333333333333333
+    },
+    {
+      "case_id": "service-model-and-layering",
+      "query": "协议分层为什么有助于模块化，服务模型描述的是什么？",
+      "relevant_chunk_ids": [
+        "sha256:1c1e5d2b8900756a4ef694d65d3e68f736f8314c06174e823dab02a2cd79bb0d"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:1c1e5d2b8900756a4ef694d65d3e68f736f8314c06174e823dab02a2cd79bb0d",
+        "sha256:b498aed2633efc9cd727620b14a7e60ff610a9a4ae55620c7a82a960903a7f2a",
+        "sha256:98dc7271aeab9e710e61c77d5363e7e690ff7d2d0dc109847925a2d10a04f292"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "internet-five-layer-stack",
+      "query": "因特网五层协议栈包含哪些层？",
+      "relevant_chunk_ids": [
+        "sha256:b498aed2633efc9cd727620b14a7e60ff610a9a4ae55620c7a82a960903a7f2a"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:b498aed2633efc9cd727620b14a7e60ff610a9a4ae55620c7a82a960903a7f2a",
+        "sha256:cee6dddd5adef91f2143ad4d1179eddb0e264ecbfc626dc722387fec14b5940f",
+        "sha256:1659a09e9352defd28499b1bc031c2773483730011d686277f61e280ffe59a99"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "tcp-udp-ip-layer-roles",
+      "query": "TCP、UDP 和 IP 在运输层与网络层分别提供什么服务？",
+      "relevant_chunk_ids": [
+        "sha256:cee6dddd5adef91f2143ad4d1179eddb0e264ecbfc626dc722387fec14b5940f"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:cee6dddd5adef91f2143ad4d1179eddb0e264ecbfc626dc722387fec14b5940f",
+        "sha256:1659a09e9352defd28499b1bc031c2773483730011d686277f61e280ffe59a99",
+        "sha256:1c1e5d2b8900756a4ef694d65d3e68f736f8314c06174e823dab02a2cd79bb0d"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "encapsulation",
+      "query": "封装时应用层报文如何依次变成报文段、数据报和帧？",
+      "relevant_chunk_ids": [
+        "sha256:16eda57b76ec3959212e9dd38a2f481f6f74d580241361eb435fa73e37a3aac4"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:4df3f919e7c7505575150a85bc28ea2048465fe67246e601234d64611d5a530d",
+        "sha256:16eda57b76ec3959212e9dd38a2f481f6f74d580241361eb435fa73e37a3aac4",
+        "sha256:cee6dddd5adef91f2143ad4d1179eddb0e264ecbfc626dc722387fec14b5940f"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 2,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.5
+    },
+    {
+      "case_id": "dos-ddos-attacks",
+      "query": "DoS 的弱点攻击、带宽洪泛和连接洪泛各有什么特点，DDoS 为什么更难防？",
+      "relevant_chunk_ids": [
+        "sha256:3d0bdaccd7172a8d735580623424c47760f9a14e8b1dd42bd169a07e6811c403"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:3d0bdaccd7172a8d735580623424c47760f9a14e8b1dd42bd169a07e6811c403",
+        "sha256:368706baf6a16085415f6ce956925bbed9e98e35b84860c26a9a5662fa14987e",
+        "sha256:e49188e6a78b73f602de665b7a6f638a7f5b9cdf457b99d3333db06504f7f01f"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "packet-sniffing-and-ip-spoofing",
+      "query": "分组嗅探器如何获得敏感信息，什么是 IP 欺骗？",
+      "relevant_chunk_ids": [
+        "sha256:368706baf6a16085415f6ce956925bbed9e98e35b84860c26a9a5662fa14987e"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:368706baf6a16085415f6ce956925bbed9e98e35b84860c26a9a5662fa14987e",
+        "sha256:e5ce3d62288d89e2d37ebe1de7e7cfe00731cf20c23e72c131f4baef0a821fbf",
+        "sha256:d889bb2e2dc3c586ebf57b312a84deea669612e5dbfd70314fdc02a208e0b449"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "endpoint-authentication-and-trust",
+      "query": "端点鉴别要解决什么问题，早期因特网为什么天生缺少安全性？",
+      "relevant_chunk_ids": [
+        "sha256:e5ce3d62288d89e2d37ebe1de7e7cfe00731cf20c23e72c131f4baef0a821fbf"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:e5ce3d62288d89e2d37ebe1de7e7cfe00731cf20c23e72c131f4baef0a821fbf",
+        "sha256:368706baf6a16085415f6ce956925bbed9e98e35b84860c26a9a5662fa14987e",
+        "sha256:ceb7d579384363657c7df3f509b0358e4dd08e58292dd57350aa8d976545376f"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "arpanet-origin",
+      "query": "ARPAnet 是如何成为公共因特网祖先的，1969 年发生了什么？",
+      "relevant_chunk_ids": [
+        "sha256:6195b2c9d095471f2039b1259de460da36949050e5e27126ddb65855202104aa"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:6195b2c9d095471f2039b1259de460da36949050e5e27126ddb65855202104aa",
+        "sha256:ceb7d579384363657c7df3f509b0358e4dd08e58292dd57350aa8d976545376f"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "tcp-udp-ip-history",
+      "query": "TCP、UDP 和 IP 为什么会在 20 世纪 70 年代从早期互联网络研究中形成？",
+      "relevant_chunk_ids": [
+        "sha256:6bb0c14d23f0aa055cfe65736cc287968674e4fb6f9512a333ec76b35b19cf65"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:6bb0c14d23f0aa055cfe65736cc287968674e4fb6f9512a333ec76b35b19cf65",
+        "sha256:9483369cb0dc100902784d99087b2c0110879fd136882174ba099c5d3884bcf8",
+        "sha256:63b9fb83b11840a756766770acac917b9fe88b34a1327399576f0f37dbb3dd1e"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "web-commercialization",
+      "query": "20 世纪 90 年代万维网如何推动因特网走向家庭和商业化？",
+      "relevant_chunk_ids": [
+        "sha256:6e330f73d4134db583082cd440f8c0449ea5eaf9ddab8cddba090adc2059e117"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:6e330f73d4134db583082cd440f8c0449ea5eaf9ddab8cddba090adc2059e117",
+        "sha256:4e240a2a36372d3fc671b618af6df2d977b4fbcfb83297836d5c3a81c4f75a50",
+        "sha256:4fab610330177233213fbc458ffde764817f5b50e03bb756c36c3b5b600bc73f"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "case_id": "cloud-and-broadband-development",
+      "query": "21 世纪的宽带、移动接入和云计算发展给因特网应用带来了什么变化？",
+      "relevant_chunk_ids": [
+        "sha256:4fab610330177233213fbc458ffde764817f5b50e03bb756c36c3b5b600bc73f"
+      ],
+      "retrieved_chunk_ids": [
+        "sha256:4fab610330177233213fbc458ffde764817f5b50e03bb756c36c3b5b600bc73f",
+        "sha256:6e330f73d4134db583082cd440f8c0449ea5eaf9ddab8cddba090adc2059e117",
+        "sha256:b439ee91b741a638d5ccd5605c85b675d6e36e0a469289ca4829b50234baff67"
+      ],
+      "top_k": 3,
+      "first_relevant_rank": 1,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    }
+  ],
+  "case_count": 39,
+  "hit_rate_at_k": 1.0,
+  "mean_recall_at_k": 1.0,
+  "mrr": 0.8888888888888888
+}
