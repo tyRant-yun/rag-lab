@@ -25,6 +25,7 @@ dev = [
 normalize-docling = "rag_lab.normalization.cli:main"
 chunk-normalized = "rag_lab.chunking.cli:main"
 search-bm25 = "rag_lab.retrieval.bm25.cli:main"
+search-dense = "rag_lab.retrieval.dense.cli:main"
 evaluate-bm25 = "rag_lab.evaluation.bm25_cli:main"
 embed-chunks = "rag_lab.embeddings.cli:main"
 index-qdrant = "rag_lab.vector_store.cli:main"

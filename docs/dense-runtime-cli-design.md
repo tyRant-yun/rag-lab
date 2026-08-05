@@ -1,6 +1,6 @@
 # Dense Runtime CLI Design
 
-**Status:** Proposed — implementation starts after boundary confirmation.
+**Status:** Implemented — boundary confirmed and smoke verified locally.
 
 ## Goal
 
