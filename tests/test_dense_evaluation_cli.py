@@ -4,6 +4,8 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
+from qdrant_client import QdrantClient
+
 from rag_lab.contracts import (
     EmbeddingBatch,
     EmbeddingVector,
@@ -17,6 +19,7 @@ from rag_lab.contracts import (
 )
 from rag_lab.evaluation import RetrievalEvaluationCase
 from rag_lab.evaluation.dense_cli import main
+from rag_lab.vector_store import QdrantVectorStore
 
 
 def make_chunk(
@@ -124,6 +127,7 @@ class FakeVectorStore:
         filters: SearchFilters | None = None,
     ) -> int:
         del filters
+
         raise AssertionError(
             "FakeRetriever owns evaluation search calls"
         )
@@ -138,6 +142,20 @@ class FakeVectorStore:
         del vector, top_k, filters
         raise AssertionError(
             "FakeRetriever owns evaluation search calls"
+        )
+
+
+class LocalModeEmbeddingProvider(
+    FakeEmbeddingProvider
+):
+    def embed_query(
+        self,
+        text: str,
+    ) -> EmbeddingVector:
+        del text
+        return EmbeddingVector(
+            values=[0.6, 0.8],
+            dimensions=self.dimensions,
         )
 
 
@@ -423,3 +441,50 @@ def test_reports_factory_error(
     assert exit_code == 2
     assert captured.out == ""
     assert "error: provider setup failed" in captured.err
+
+
+def test_missing_collection_returns_exit_two_without_creation(
+    tmp_path: Path,
+    capsys,
+):
+    cases_path = tmp_path / "cases.jsonl"
+    write_cases(
+        cases_path,
+        [
+            RetrievalEvaluationCase(
+                case_id="missing-collection-case",
+                query="TCP",
+                relevant_chunk_ids=["chunk-tcp"],
+            )
+        ],
+    )
+    client = QdrantClient(":memory:")
+    collection_name = "missing-evaluate-dense"
+    provider = LocalModeEmbeddingProvider()
+    store = QdrantVectorStore(
+        client=client,
+        collection_name=collection_name,
+        dimensions=2,
+    )
+
+    exit_code = main(
+        [
+            "--cases",
+            str(cases_path),
+            "--dataset-id",
+            "missing-collection-dataset",
+            "--collection",
+            collection_name,
+            "--dimensions",
+            "2",
+        ],
+        provider_factory=lambda **_: provider,
+        store_factory=lambda **_: store,
+    )
+
+    captured = capsys.readouterr()
+
+    assert exit_code == 2
+    assert captured.out == ""
+    assert "does not exist" in captured.err
+    assert client.collection_exists(collection_name) is False

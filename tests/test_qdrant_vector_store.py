@@ -145,6 +145,7 @@ def test_upsert_is_idempotent_by_chunk_id():
 def test_count_returns_zero_for_empty_collection():
     client = QdrantClient(":memory:")
     store = make_store(client)
+    store.ensure_collection()
 
     assert store.count() == 0
 

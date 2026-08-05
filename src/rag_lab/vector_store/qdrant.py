@@ -79,19 +79,7 @@ class QdrantVectorStore:
         return self._dimensions
 
     def ensure_collection(self) -> None:
-        try:
-            collection_exists = (
-                self._client.collection_exists(
-                    self.collection_name
-                )
-            )
-        except Exception as error:
-            raise QdrantVectorStoreError(
-                "failed to inspect Qdrant collection "
-                f"{self.collection_name!r}: {error}"
-            ) from error
-
-        if not collection_exists:
+        if not self._collection_exists():
             try:
                 self._client.create_collection(
                     collection_name=(
@@ -114,6 +102,29 @@ class QdrantVectorStore:
 
             return
 
+        self._validate_existing_collection()
+
+    def _require_existing_collection(self) -> None:
+        if not self._collection_exists():
+            raise QdrantVectorStoreError(
+                "Qdrant collection "
+                f"{self.collection_name!r} does not exist"
+            )
+
+        self._validate_existing_collection()
+
+    def _collection_exists(self) -> bool:
+        try:
+            return self._client.collection_exists(
+                self.collection_name
+            )
+        except Exception as error:
+            raise QdrantVectorStoreError(
+                "failed to inspect Qdrant collection "
+                f"{self.collection_name!r}: {error}"
+            ) from error
+
+    def _validate_existing_collection(self) -> None:
         try:
             collection_info = (
                 self._client.get_collection(
@@ -273,7 +284,7 @@ class QdrantVectorStore:
                 "filters must be SearchFilters"
             )
 
-        self.ensure_collection()
+        self._require_existing_collection()
 
         try:
             result = self._client.count(
@@ -349,7 +360,7 @@ class QdrantVectorStore:
                 "filters must be SearchFilters"
             )
 
-        self.ensure_collection()
+        self._require_existing_collection()
 
         try:
             response = self._client.query_points(

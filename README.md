@@ -79,19 +79,28 @@ src/rag_lab/
 │   ├── serialization.py
 │   ├── lexical/
 │   │   └── analyzer.py
-│   └── bm25/
-│       ├── index.py
+│   ├── bm25/
+│   │   ├── index.py
+│   │   ├── retriever.py
+│   │   └── cli.py
+│   └── dense/
 │       ├── retriever.py
 │       └── cli.py
 ├── embeddings/
 │   ├── provider.py
 │   ├── ollama.py
 │   └── cli.py
+├── vector_store/
+│   ├── provider.py
+│   ├── payload.py
+│   ├── qdrant.py
+│   └── cli.py
 └── evaluation/
     ├── models.py
     ├── serialization.py
     ├── evaluator.py
-    └── bm25_cli.py
+    ├── bm25_cli.py
+    └── dense_cli.py
 ```
 
 `rag_lab.contracts` 存放共享产品契约，导入它不会加载 Normalizer、
