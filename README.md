@@ -12,10 +12,12 @@ RAG Lab 是一个本地知识库项目，用于把源文档转换成可追踪、
 6. 可复用的检索评估模型、评估器和 BM25 CLI；
 7. 存储无关的 Embedding 契约和 Provider 接口；
 8. Ollama Embedding Provider 与分批验证 CLI；
-9. BM25 和 Embedding 真实样本基线报告。
+9. BM25 和 Embedding 真实样本基线报告；
+10. Qdrant 向量存储、Dense Retriever 与检索 CLI；
+11. Dense 检索评估 CLI 与真实样本基线报告。
 
-Qdrant、Dense Retriever、混合检索、检索 API 和 Agent
-集成属于后续阶段。Embedding 基线只记录统计信息，不保存原始向量。
+混合检索、检索 API 和 Agent 集成属于后续阶段。Embedding 基线只记录
+统计信息，不保存原始向量。
 
 ## 整体流程
 
@@ -31,9 +33,9 @@ KnowledgeChunk / chunks.jsonl
   │    ↓
   │  SearchResult → RetrievalEvaluator → BM25 基线报告
   │
-  └─ OllamaEmbeddingProvider → EmbeddingRunReport
-       ↓ 后续阶段
-     Qdrant → Dense/Hybrid Retriever → RAG → Agent
+  └─ OllamaEmbeddingProvider → QdrantVectorStore → DenseRetriever
+       ↓                                      ↓
+     EmbeddingRunReport         SearchResult → RetrievalEvaluator → Dense 基线报告
 ```
 
 Markdown 文件只用于人工检查，JSONL 文件才是下游机器接口。
@@ -48,7 +50,8 @@ Markdown 文件只用于人工检查，JSONL 文件才是下游机器接口。
 - **Evaluation**：负责标注查询读取、Hit@K、Recall@K、MRR 和不同 Retriever 的统一比较。
 - **EmbeddingProvider**：负责区分文档和查询的向量化策略，并校验模型返回的向量。
 - **Embedding CLI**：负责对 Chunk 分批向量化并输出不含原始向量的验收报告。
-- **Dense/Hybrid Retriever**：后续负责 Qdrant 向量检索和混合排序。
+- **DenseRetriever**：负责查询向量化、Qdrant 向量检索和 `SearchResult` 转换。
+- **Hybrid Retriever**：后续负责词法和向量结果的融合排序。
 - **Agent**：后续通过稳定的检索工具使用知识库。
 
 Chunker 只读取 `blocks.jsonl`，不读取 PDF、Docling JSON 或人工审阅 Markdown。
@@ -76,19 +79,28 @@ src/rag_lab/
 │   ├── serialization.py
 │   ├── lexical/
 │   │   └── analyzer.py
-│   └── bm25/
-│       ├── index.py
+│   ├── bm25/
+│   │   ├── index.py
+│   │   ├── retriever.py
+│   │   └── cli.py
+│   └── dense/
 │       ├── retriever.py
 │       └── cli.py
 ├── embeddings/
 │   ├── provider.py
 │   ├── ollama.py
 │   └── cli.py
+├── vector_store/
+│   ├── provider.py
+│   ├── payload.py
+│   ├── qdrant.py
+│   └── cli.py
 └── evaluation/
     ├── models.py
     ├── serialization.py
     ├── evaluator.py
-    └── bm25_cli.py
+    ├── bm25_cli.py
+    └── dense_cli.py
 ```
 
 `rag_lab.contracts` 存放共享产品契约，导入它不会加载 Normalizer、
@@ -308,6 +320,29 @@ evaluate-bm25 `
 Hit@K、Mean Recall@K 和 MRR，并验证标注的相关 Chunk ID 是否
 存在于当前语料。
 
+## 运行 Dense 评估
+
+`evaluate-dense` 装配 Ollama Provider、QdrantVectorStore 和 `DenseRetriever`；
+指标计算统一复用 `RetrievalEvaluator`。本阶段的基线只针对已有 collection
+运行，未执行 collection 的创建、迁移或写入。每个评测 case 中的 `filters`
+会原样传给 DenseRetriever。
+
+```powershell
+evaluate-dense `
+  --cases ".\evaluations\computer_networking\chapter_01_smoke.jsonl" `
+  --dataset-id "chapter-01-smoke" `
+  --collection "computer-networking-smoke" `
+  --top-k 3 `
+  --url "http://localhost:6333" `
+  --model "qwen3-embedding:0.6b" `
+  --host "http://localhost:11434" `
+  --dimensions 1024 `
+  --json
+```
+
+请使用已经存在、且其向量维度与模型版本和命令参数兼容的 collection。
+`--embedding-timeout-seconds` 与 `--qdrant-timeout-seconds` 可按本地环境调整。
+
 ## 运行 Ollama Embedding 验证
 
 先安装并启动 Ollama，然后下载当前基线模型：
@@ -384,11 +419,11 @@ overlap_char_count
 - overlap 不跨 `heading_path`，也不会截断 table、code、equation。
 - Normalizer 和 Chunker 的一次 CLI 调用只处理一个文档。
 - BM25 索引当前只驻留内存，每次进程启动都会重新构建。
-- Embedding 当前只完成生成与验证，尚未持久化或写入向量数据库。
+- 当前 Dense 基线只使用已有的兼容 Qdrant collection；collection 创建、
+  迁移、增量写入和删除不在当前阶段范围内。
 - `embedding_version` 记录模型标签、维度和查询指令哈希，但尚未
   记录 Ollama 本地模型文件的完整 digest。
-- 尚未实现增量索引、删除、持久化词法索引、Qdrant、
-  混合检索、检索 API 和 Agent。
+- 尚未实现持久化词法索引、混合检索、reranker、检索 API 和 Agent。
 - 当前评估集只有第 19–23 页的 8 个 Chunk 和 7 个查询，只能作为
   流程冒烟基线，不能代表完整第一章的检索质量。
 
@@ -455,6 +490,38 @@ chapter_01_smoke_bm25_top5.json
 该结果只用于验证评估链路和记录词法检索起点，不应解读为完整
 知识库上的质量结论。
 
+### Dense 冒烟基线
+
+使用同一组 8 个 Chunk、7 个标注查询、已有的
+`computer-networking-smoke` collection、`qwen3-embedding:0.6b` 和 1024 维
+向量运行。collection 的 `embedding_version` 为：
+
+```text
+ollama:qwen3-embedding:0.6b:dimensions-1024:query-v1-ec1f1563040d
+```
+
+| Top K | Hit@K | Mean Recall@K | MRR |
+| --- | ---: | ---: | ---: |
+| 1 | 0.857143 | 0.714286 | 0.857143 |
+| 3 | 1.000000 | 1.000000 | 0.904762 |
+| 5 | 1.000000 | 1.000000 | 0.904762 |
+
+逐 case 的首个相关结果排名为：Top 1 中 `end-systems` 未命中，其余 6 个
+为第 1 名；Top 3 和 Top 5 中 `end-systems` 为第 3 名，其余 6 个为第 1 名。
+没有针对这 7 条样本调整模型或检索参数。
+
+基线报告保存在：
+
+```text
+evaluations/computer_networking/baselines/
+chapter_01_smoke_dense_top1.json
+chapter_01_smoke_dense_top3.json
+chapter_01_smoke_dense_top5.json
+```
+
+报告保存结构化评测结果和 Chunk ID，不包含原始向量；它们仅是当前本地
+collection 的可复现实验记录，不代表完整第一章或通用知识库质量。
+
 ### Ollama Embedding 冒烟基线
 
 使用相同的 8 个 Chunk、`qwen3-embedding:0.6b` 模型和 1024
@@ -485,12 +552,12 @@ chapter_01_smoke_ollama_embedding_1024.json
 
 1. 中文词法处理；
 2. BM25 检索与基线评估；
-3. Ollama Embedding、分批验证 CLI 与真实样本报告。
+3. Ollama Embedding、分批验证 CLI 与真实样本报告；
+4. Qdrant 向量存储、Dense Retriever、运行时 CLI 与 Dense 基线评估。
 
 下一阶段依次实现：
 
-1. Qdrant 向量存储；
-2. Dense Retriever 与基线评估；
-3. BM25 与向量混合检索；
-4. 检索 API；
-5. Agent 工具接入。
+1. BM25 与向量混合检索；
+2. reranker；
+3. 检索 API；
+4. Agent 工具接入。

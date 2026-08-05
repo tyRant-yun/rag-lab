@@ -4,6 +4,8 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
+from qdrant_client import QdrantClient
+
 from rag_lab.contracts import (
     EmbeddingBatch,
     EmbeddingVector,
@@ -13,6 +15,7 @@ from rag_lab.contracts import (
     VectorRecord,
     VectorWriteReport,
 )
+from rag_lab.vector_store import QdrantVectorStore
 from rag_lab.vector_store.cli import (
     index_chunks,
     main,
@@ -226,3 +229,60 @@ def test_cli_writes_json_report(
     )
     assert payload["input_count"] == 3
     assert payload["upserted_count"] == 3
+
+
+def test_cli_creates_missing_collection_in_local_mode(
+    tmp_path: Path,
+    capsys,
+):
+    chunks_path = tmp_path / "chunks.jsonl"
+    chunks_path.write_text(
+        "\n".join(
+            json.dumps(
+                chunk.to_dict(),
+                ensure_ascii=False,
+            )
+            for chunk in make_chunks()
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    client = QdrantClient(":memory:")
+    collection_name = "created-by-index-cli"
+    provider = FakeEmbeddingProvider()
+
+    def store_factory(
+        **kwargs: object,
+    ) -> QdrantVectorStore:
+        return QdrantVectorStore(
+            client=client,
+            collection_name=str(
+                kwargs["collection_name"]
+            ),
+            dimensions=int(kwargs["dimensions"]),
+        )
+
+    exit_code = main(
+        [
+            "--chunks",
+            str(chunks_path),
+            "--collection",
+            collection_name,
+            "--dimensions",
+            "2",
+            "--batch-size",
+            "2",
+        ],
+        provider_factory=lambda **_: provider,
+        store_factory=store_factory,
+    )
+
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert captured.err == ""
+    assert client.collection_exists(collection_name)
+    assert client.count(
+        collection_name=collection_name,
+        exact=True,
+    ).count == len(make_chunks())

@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 
+from qdrant_client import QdrantClient
+
 from rag_lab.contracts import (
     EmbeddingBatch,
     EmbeddingVector,
@@ -13,6 +15,7 @@ from rag_lab.contracts import (
     VectorWriteReport,
 )
 from rag_lab.retrieval.dense.cli import main
+from rag_lab.vector_store import QdrantVectorStore
 
 
 def make_chunk(
@@ -369,3 +372,36 @@ def test_reports_invalid_filter_without_retrieval(
     assert provider.query_calls == []
     assert store.count_calls == []
     assert store.search_calls == []
+
+
+def test_missing_collection_returns_exit_two_without_creation(
+    capsys,
+):
+    client = QdrantClient(":memory:")
+    collection_name = "missing-search-dense"
+    provider = FakeEmbeddingProvider()
+    store = QdrantVectorStore(
+        client=client,
+        collection_name=collection_name,
+        dimensions=2,
+    )
+
+    exit_code = main(
+        [
+            "--collection",
+            collection_name,
+            "--query",
+            "TCP",
+            "--dimensions",
+            "2",
+        ],
+        provider_factory=lambda **_: provider,
+        store_factory=lambda **_: store,
+    )
+
+    captured = capsys.readouterr()
+
+    assert exit_code == 2
+    assert captured.out == ""
+    assert "does not exist" in captured.err
+    assert client.collection_exists(collection_name) is False
