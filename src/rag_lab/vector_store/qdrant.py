@@ -257,6 +257,53 @@ class QdrantVectorStore:
             embedding_version=embedding_version,
         )
 
+    def count(
+        self,
+        *,
+        filters: SearchFilters | None = None,
+    ) -> int:
+        if (
+            filters is not None
+            and not isinstance(
+                filters,
+                SearchFilters,
+            )
+        ):
+            raise TypeError(
+                "filters must be SearchFilters"
+            )
+
+        self.ensure_collection()
+
+        try:
+            result = self._client.count(
+                collection_name=(
+                    self.collection_name
+                ),
+                count_filter=(
+                    filters_to_qdrant_filter(
+                        filters
+                    )
+                ),
+                exact=True,
+            )
+        except Exception as error:
+            raise QdrantVectorStoreError(
+                "failed to count Qdrant points "
+                f"in {self.collection_name!r}: "
+                f"{error}"
+            ) from error
+
+        count = int(result.count)
+
+        if count < 0:
+            raise QdrantVectorStoreError(
+                "Qdrant returned a negative "
+                "point count"
+            )
+
+        return count
+
     def search(
         self,
         vector: EmbeddingVector,

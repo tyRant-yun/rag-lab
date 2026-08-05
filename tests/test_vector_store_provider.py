@@ -85,6 +85,14 @@ class FakeVectorStore:
             ),
         )
 
+    def count(
+        self,
+        *,
+        filters: SearchFilters | None = None,
+    ) -> int:
+        del filters
+        return len(self._records)
+
     def search(
         self,
         vector: EmbeddingVector,
@@ -166,3 +174,12 @@ def test_vector_store_is_publicly_exported():
     import rag_lab.vector_store as vector_store
 
     assert "VectorStore" in vector_store.__all__
+
+def test_vector_store_counts_records():
+    store: VectorStore = FakeVectorStore()
+
+    assert store.count() == 0
+
+    store.upsert([make_record()])
+
+    assert store.count() == 1

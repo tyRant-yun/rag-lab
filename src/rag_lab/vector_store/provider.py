@@ -40,6 +40,14 @@ class VectorStore(Protocol):
         """Insert or replace vector records."""
         ...
 
+    def count(
+        self,
+        *,
+        filters: SearchFilters | None = None,
+    ) -> int:
+        """Count records matching storage-neutral filters."""
+        ...
+
     def search(
         self,
         vector: EmbeddingVector,
