@@ -132,6 +132,89 @@ def test_upsert_is_idempotent_by_chunk_id():
     assert count.count == 1
 
 
+def test_count_returns_zero_for_empty_collection():
+    client = QdrantClient(":memory:")
+    store = make_store(client)
+
+    assert store.count() == 0
+
+
+def test_count_returns_all_points():
+    client = QdrantClient(":memory:")
+    store = make_store(client)
+
+    store.upsert(
+        [
+            make_record(
+                chunk_id="chunk-http",
+                document_id="document-a",
+                heading_path=[
+                    "第二章",
+                    "应用层",
+                ],
+                page_start=20,
+                values=[1.0, 0.0, 0.0],
+            ),
+            make_record(
+                chunk_id="chunk-dns",
+                document_id="document-b",
+                heading_path=[
+                    "第二章",
+                    "应用层",
+                ],
+                page_start=24,
+                values=[0.8, 0.2, 0.0],
+            ),
+        ]
+    )
+
+    assert store.count() == 2
+
+
+def test_count_applies_existing_filter_semantics():
+    client = QdrantClient(":memory:")
+    store = make_store(client)
+
+    store.upsert(
+        [
+            make_record(
+                chunk_id="chunk-http",
+                document_id="document-a",
+                heading_path=[
+                    "第二章",
+                    "应用层",
+                ],
+                page_start=20,
+                values=[1.0, 0.0, 0.0],
+            ),
+            make_record(
+                chunk_id="chunk-dns",
+                document_id="document-b",
+                heading_path=[
+                    "第二章",
+                    "应用层",
+                ],
+                page_start=24,
+                values=[0.8, 0.2, 0.0],
+            ),
+        ]
+    )
+
+    count = store.count(
+        filters=SearchFilters(
+            document_ids=["document-b"],
+            heading_prefix=[
+                "第二章",
+                "应用层",
+            ],
+            page_start=21,
+            page_end=25,
+        )
+    )
+
+    assert count == 1
+
+
 def test_search_restores_ranked_chunks():
     client = QdrantClient(":memory:")
     store = make_store(client)
