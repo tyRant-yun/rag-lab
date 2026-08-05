@@ -89,17 +89,28 @@
 - `index-qdrant`：collection `computer-networking-chapter-01-v4`
   已创建并写入 69/69 条。
 
+### Hybrid RRF（BM25 + Dense，rrf_k=60，per_retriever_k=10）
+
+| Top K | Hit@K | Mean Recall@K | MRR |
+| --- | ---: | ---: | ---: |
+| 3 | 1.0000 | 0.7711 | 0.9394 |
+| 5 | 1.0000 | 0.8915 | 0.9343 |
+
+实现见 `src/rag_lab/retrieval/hybrid/` 与
+`src/rag_lab/evaluation/hybrid_cli.py`；报告保存在
+`evaluations/computer_networking/baselines/chapter_01_v4_hybrid_rrf_top{3,5}.json`。
+
 ### 失败用例分析（Top 5）
 
 BM25 与 Dense 在 Hit@5 均为 0.9697（32/33），且**未命中用例不同**：
 
-| 用例 | query | BM25 | Dense |
-| --- | --- | --- | --- |
-| `end-systems` | 什么是端系统 | 未命中 | 第 4 名命中 |
-| `packet-switching` | 什么是分组交换网络 | 第 3 名命中 | 未命中 |
+| 用例 | query | BM25 | Dense | Hybrid RRF |
+| --- | --- | --- | --- | --- |
+| `end-systems` | 什么是端系统 | 未命中 | 第 4 名命中 | 命中 |
+| `packet-switching` | 什么是分组交换网络 | 第 3 名命中 | 未命中 | 命中 |
 
 说明词法检索和向量检索对问句式查询的失败面不重叠，
-混合检索（如 RRF）有机会把 Hit@5 提升到 1.0，是下一阶段的直接动机。
+RRF 混合检索已把 Hit@5 提升到 1.000000（33/33），MRR 与单路最优持平。
 
 ## 复现命令
 
@@ -124,6 +135,15 @@ index-qdrant `
 
 # Dense 评估
 evaluate-dense `
+  --cases ".\evaluations\computer_networking\chapter_01_v4.jsonl" `
+  --dataset-id "chapter-01-v4" `
+  --collection "computer-networking-chapter-01-v4" `
+  --top-k 5 --json
+```
+
+# 混合评估
+evaluate-hybrid `
+  --chunks "path\to\chunks.jsonl" `
   --cases ".\evaluations\computer_networking\chapter_01_v4.jsonl" `
   --dataset-id "chapter-01-v4" `
   --collection "computer-networking-chapter-01-v4" `
