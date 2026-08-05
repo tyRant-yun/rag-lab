@@ -1,0 +1,405 @@
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from collections.abc import (
+    Callable,
+    Sequence,
+)
+from pathlib import Path
+
+from rag_lab.embeddings import (
+    EmbeddingProvider,
+    OllamaEmbeddingError,
+    OllamaEmbeddingProvider,
+)
+from rag_lab.evaluation import (
+    RetrievalEvaluationReport,
+    RetrievalEvaluator,
+    read_retrieval_evaluation_cases_jsonl,
+)
+from rag_lab.retrieval import (
+    read_knowledge_chunks_jsonl,
+)
+from rag_lab.retrieval.bm25 import (
+    BM25Index,
+    BM25Retriever,
+)
+from rag_lab.retrieval.dense import (
+    DenseRetriever,
+)
+from rag_lab.retrieval.hybrid import (
+    HybridRetriever,
+)
+from rag_lab.retrieval.lexical import (
+    LexicalAnalyzer,
+)
+from rag_lab.retrieval.rerank import (
+    LexicalOverlapReranker,
+    RerankedRetriever,
+)
+from rag_lab.vector_store import (
+    QdrantVectorStoreError,
+    VectorStore,
+)
+from rag_lab.vector_store.cli import (
+    build_qdrant_store,
+)
+
+
+ProviderFactory = Callable[
+    ...,
+    EmbeddingProvider,
+]
+StoreFactory = Callable[
+    ...,
+    VectorStore,
+]
+RerankedRetrieverFactory = Callable[..., object]
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="evaluate-rerank",
+        description=(
+            "Evaluate hybrid retrieval with lexical "
+            "reranking against a labeled JSONL query set."
+        ),
+    )
+
+    parser.add_argument(
+        "--chunks",
+        type=Path,
+        required=True,
+        help="Path to KnowledgeChunk JSONL.",
+    )
+    parser.add_argument(
+        "--cases",
+        type=Path,
+        required=True,
+        help=(
+            "Path to retrieval evaluation "
+            "case JSONL."
+        ),
+    )
+    parser.add_argument(
+        "--dataset-id",
+        required=True,
+        help="Stable identifier for the dataset.",
+    )
+    parser.add_argument(
+        "--collection",
+        required=True,
+        help="Qdrant collection name.",
+    )
+    parser.add_argument(
+        "--top-k",
+        type=int,
+        default=5,
+        help="Evaluation cutoff. Default: 5.",
+    )
+    parser.add_argument(
+        "--rrf-k",
+        type=int,
+        default=HybridRetriever.DEFAULT_RRF_K,
+        help="RRF smoothing constant. Default: 60.",
+    )
+    parser.add_argument(
+        "--per-retriever-k",
+        type=int,
+        default=(
+            HybridRetriever.DEFAULT_PER_RETRIEVER_K
+        ),
+        help=(
+            "Hits requested from each retriever "
+            "before fusion. Default: 10."
+        ),
+    )
+    parser.add_argument(
+        "--fetch-k",
+        type=int,
+        default=RerankedRetriever.DEFAULT_FETCH_K,
+        help=(
+            "Candidates fetched from the base retriever "
+            "before reranking. Default: 20."
+        ),
+    )
+    parser.add_argument(
+        "--rrf-weight",
+        type=float,
+        default=1.0,
+        help="Weight of the fused RRF score. Default: 1.0.",
+    )
+    parser.add_argument(
+        "--overlap-weight",
+        type=float,
+        default=1.0,
+        help=(
+            "Weight of query-term overlap with index_text. "
+            "Default: 1.0."
+        ),
+    )
+    parser.add_argument(
+        "--heading-weight",
+        type=float,
+        default=1.0,
+        help=(
+            "Weight of query-term overlap with heading_path. "
+            "Default: 1.0."
+        ),
+    )
+    parser.add_argument(
+        "--url",
+        default="http://localhost:6333",
+        help=(
+            "Qdrant server URL. Default: "
+            "http://localhost:6333."
+        ),
+    )
+    parser.add_argument(
+        "--model",
+        default=(
+            OllamaEmbeddingProvider.DEFAULT_MODEL
+        ),
+        help="Ollama embedding model.",
+    )
+    parser.add_argument(
+        "--host",
+        default=(
+            OllamaEmbeddingProvider.DEFAULT_HOST
+        ),
+        help="Ollama server URL.",
+    )
+    parser.add_argument(
+        "--dimensions",
+        type=int,
+        default=(
+            OllamaEmbeddingProvider
+            .DEFAULT_DIMENSIONS
+        ),
+        help="Embedding dimensions. Default: 1024.",
+    )
+    parser.add_argument(
+        "--embedding-timeout-seconds",
+        type=float,
+        default=60.0,
+        help="Ollama request timeout.",
+    )
+    parser.add_argument(
+        "--qdrant-timeout-seconds",
+        type=int,
+        default=10,
+        help="Qdrant request timeout.",
+    )
+    parser.add_argument(
+        "--user-word",
+        action="append",
+        dest="user_words",
+        help=(
+            "Add a domain-specific Jieba word. "
+            "May be repeated."
+        ),
+    )
+    parser.add_argument(
+        "--stopword",
+        action="append",
+        dest="stopwords",
+        help=(
+            "Exclude one lexical term. "
+            "May be repeated."
+        ),
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="Write the complete report as JSON.",
+    )
+
+    return parser
+
+
+def main(
+    argv: Sequence[str] | None = None,
+    *,
+    provider_factory: ProviderFactory = (
+        OllamaEmbeddingProvider
+    ),
+    store_factory: StoreFactory = (
+        build_qdrant_store
+    ),
+    reranked_retriever_factory: (
+        RerankedRetrieverFactory
+    ) = RerankedRetriever,
+) -> int:
+    parser = build_parser()
+    arguments = parser.parse_args(argv)
+
+    try:
+        chunks = read_knowledge_chunks_jsonl(
+            arguments.chunks
+        )
+
+        if not chunks:
+            raise ValueError(
+                "chunks cannot be empty"
+            )
+
+        cases = (
+            read_retrieval_evaluation_cases_jsonl(
+                arguments.cases,
+                known_chunk_ids={
+                    chunk.chunk_id
+                    for chunk in chunks
+                },
+            )
+        )
+
+        analyzer = LexicalAnalyzer(
+            user_words=arguments.user_words or (),
+            stopwords=arguments.stopwords or (),
+        )
+        index = BM25Index(
+            chunks=chunks,
+            analyzer=analyzer,
+        )
+        bm25 = BM25Retriever(index=index)
+
+        provider = provider_factory(
+            model_name=arguments.model,
+            dimensions=arguments.dimensions,
+            host=arguments.host,
+            timeout_seconds=(
+                arguments
+                .embedding_timeout_seconds
+            ),
+        )
+        store = store_factory(
+            url=arguments.url,
+            collection_name=arguments.collection,
+            dimensions=arguments.dimensions,
+            timeout_seconds=(
+                arguments
+                .qdrant_timeout_seconds
+            ),
+        )
+        dense = DenseRetriever(
+            provider=provider,
+            store=store,
+        )
+        hybrid = HybridRetriever(
+            bm25=bm25,
+            dense=dense,
+            rrf_k=arguments.rrf_k,
+            per_retriever_k=(
+                arguments.per_retriever_k
+            ),
+        )
+        reranker = LexicalOverlapReranker(
+            analyzer=analyzer,
+            rrf_weight=arguments.rrf_weight,
+            overlap_weight=arguments.overlap_weight,
+            heading_weight=arguments.heading_weight,
+        )
+        retriever = reranked_retriever_factory(
+            retriever=hybrid,
+            reranker=reranker,
+            fetch_k=arguments.fetch_k,
+        )
+        report = RetrievalEvaluator().evaluate(
+            dataset_id=arguments.dataset_id,
+            cases=cases,
+            retriever=retriever,
+            top_k=arguments.top_k,
+        )
+    except (
+        OSError,
+        OllamaEmbeddingError,
+        QdrantVectorStoreError,
+        TypeError,
+        ValueError,
+    ) as error:
+        print(
+            f"error: {error}",
+            file=sys.stderr,
+        )
+        return 2
+
+    if arguments.json_output:
+        print(
+            json.dumps(
+                report.to_dict(),
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+    else:
+        print(_render_human_report(report))
+
+    return 0
+
+
+def _render_human_report(
+    report: RetrievalEvaluationReport,
+) -> str:
+    lines = [
+        f"Dataset: {report.dataset_id}",
+        f"Retriever: {report.retriever}",
+        f"Index version: {report.index_version}",
+        f"Top K: {report.top_k}",
+        f"Cases: {report.case_count}",
+        (
+            f"Hit@{report.top_k}: "
+            f"{report.hit_rate_at_k:.6f}"
+        ),
+        (
+            f"Mean Recall@{report.top_k}: "
+            f"{report.mean_recall_at_k:.6f}"
+        ),
+        f"MRR: {report.mrr:.6f}",
+    ]
+
+    for result in report.case_results:
+        first_rank = (
+            "-"
+            if result.first_relevant_rank is None
+            else str(result.first_relevant_rank)
+        )
+        hit = "yes" if result.hit_at_k else "no"
+
+        lines.extend(
+            [
+                "",
+                f"[{result.case_id}]",
+                f"query={result.query}",
+                f"hit={hit}",
+                f"first_relevant_rank={first_rank}",
+                (
+                    f"recall@{result.top_k}="
+                    f"{result.recall_at_k:.6f}"
+                ),
+                (
+                    "reciprocal_rank="
+                    f"{result.reciprocal_rank:.6f}"
+                ),
+                (
+                    "relevant_chunk_ids="
+                    + ", ".join(
+                        result.relevant_chunk_ids
+                    )
+                ),
+                (
+                    "retrieved_chunk_ids="
+                    + ", ".join(
+                        result.retrieved_chunk_ids
+                    )
+                ),
+            ]
+        )
+
+    return "\n".join(lines)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

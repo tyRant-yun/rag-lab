@@ -16,8 +16,8 @@ RAG Lab 是一个本地知识库项目，用于把源文档转换成可追踪、
 10. Qdrant 向量存储、Dense Retriever 与检索 CLI；
 11. Dense 检索评估 CLI 与真实样本基线报告。
 
-混合检索、检索 API 和 Agent 集成属于后续阶段。Embedding 基线只记录
-统计信息，不保存原始向量。
+重排（Reranker）、检索 API 和 Agent 集成属于后续阶段。Embedding 基线只
+记录统计信息，不保存原始向量。
 
 ## 整体流程
 
@@ -88,6 +88,11 @@ src/rag_lab/
 │       ├── retriever.py
 │       └── cli.py
 │   └── hybrid/
+│       ├── retriever.py
+│       └── cli.py
+│   └── rerank/
+│       ├── protocol.py
+│       ├── lexical.py
 │       ├── retriever.py
 │       └── cli.py
 ├── embeddings/
@@ -435,7 +440,7 @@ overlap_char_count
   迁移、增量写入和删除不在当前阶段范围内。
 - `embedding_version` 记录模型标签、维度和查询指令哈希，但尚未
   记录 Ollama 本地模型文件的完整 digest。
-- 尚未实现持久化词法索引、reranker、检索 API 和 Agent。
+- 尚未实现持久化词法索引、检索 API 和 Agent。
 - 完整第一章正式基线（43 页 / 69 Chunk / 33 条查询）已建立，见
   `docs/chapter-01-v4-baseline.md`；`chapter_01_smoke` 仍作为流程冒烟集保留。
 - `source_path` 保留绝对路径仅用于溯源，产物可再生成；换机或换目录后
@@ -572,12 +577,14 @@ chapter_01_smoke_ollama_embedding_1024.json
    BM25 / Dense / Embedding 全链路基线（`docs/chapter-01-v4-baseline.md`）。
 6. 混合检索（RRF）原型：`HybridRetriever`、`search-hybrid` 与
    `evaluate-hybrid` CLI，全章评估 Hit@5 提升到 1.000000。
+7. 词法重排（Rerank）原型：`LexicalOverlapReranker`、
+   `RerankedRetriever` 与 `search-rerank` / `evaluate-rerank` CLI，
+   MRR 提升到 0.9848。
 
 下一阶段依次实现：
 
-1. reranker；
-2. 检索 API；
-3. Agent 工具接入。
+1. 检索 API；
+2. Agent 工具接入。
 
 ## 第一章 V4 正式基线
 
@@ -644,3 +651,44 @@ RRF 补上了单路检索的失败面：BM25 漏掉的 `end-systems` 与 Dense �
 `packet-switching` 在混合结果中均恢复命中，Hit@5 从 0.9697 提升到 1.0。
 基线报告保存在 `evaluations/computer_networking/baselines/`
 `chapter_01_v4_hybrid_rrf_top{3,5}.json`。
+
+## 重排（Rerank）
+
+`RerankedRetriever` 先用混合检索取前 `fetch_k` 条候选，再用
+`LexicalOverlapReranker` 按查询词重叠度确定性重排：
+
+```text
+score = rrf_weight * RRF 分数
+      + overlap_weight * 查询词在 index_text 中的覆盖率
+      + heading_weight * 查询词在 heading_path 中的覆盖率
+```
+
+默认权重均为 1.0，`fetch_k=20`，无需模型调用、完全可复现。
+
+### 运行重排检索与评估
+
+```powershell
+search-rerank `
+  --chunks "path\to\chunks.jsonl" `
+  --query "什么是端系统" `
+  --collection "computer-networking-chapter-01-v4" `
+  --top-k 5
+
+evaluate-rerank `
+  --chunks "path\to\chunks.jsonl" `
+  --cases ".\evaluations\computer_networking\chapter_01_v4.jsonl" `
+  --dataset-id "chapter-01-v4" `
+  --collection "computer-networking-chapter-01-v4" `
+  --top-k 5 --json
+```
+
+### 第一章 V4 重排基线（33 条评估）
+
+| Top K | Hit@K | Mean Recall@K | MRR |
+| --- | ---: | ---: | ---: |
+| 3 | 1.0000 | 0.7988 | 0.9848 |
+| 5 | 1.0000 | 0.9097 | 0.9848 |
+
+相比 Hybrid RRF（MRR 0.9343），重排把 MRR 提升到 0.9848：33 条中
+32 条首个相关结果排到第 1，仅 `end-systems` 排第 2。报告保存在
+`evaluations/computer_networking/baselines/chapter_01_v4_rerank_top{3,5}.json`。
