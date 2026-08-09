@@ -46,6 +46,7 @@ def make_client(
     *,
     provider: FakeEmbeddingProvider | None = None,
     store: FakeVectorStore | None = None,
+    enable_debug_routes: bool = True,
 ) -> tuple[TestClient, Path]:
     chunks_path = tmp_path / "chunks.jsonl"
     write_chunks(
@@ -93,6 +94,7 @@ def make_client(
         dimensions=2,
         provider_factory=lambda **_: active_provider,
         store_factory=lambda **_: active_store,
+        enable_debug_routes=enable_debug_routes,
     )
     return TestClient(app), chunks_path
 
@@ -241,6 +243,32 @@ def test_public_search_rejects_retriever_controls(tmp_path: Path):
 
     assert response.status_code == 422
     assert response.json()["code"] == "invalid_request"
+
+
+def test_public_search_checks_received_body_size(
+    tmp_path: Path,
+):
+    client, _ = make_client(tmp_path)
+
+    response = client.post(
+        "/api/v1/search",
+        content=b'{"query":"' + b"x" * 9000 + b'"}',
+        headers={
+            "content-type": "application/json",
+            "content-length": "0",
+        },
+    )
+
+    assert response.status_code == 413
+    assert response.json()["code"] == "request_too_large"
+
+
+def test_public_mode_hides_debug_routes(tmp_path: Path):
+    client, _ = make_client(tmp_path, enable_debug_routes=False)
+
+    assert client.get("/docs").status_code == 404
+    assert client.get("/openapi.json").status_code == 404
+    assert client.post("/search", json={"query": "TCP"}).status_code == 404
 
 
 def test_search_with_filters(tmp_path: Path):

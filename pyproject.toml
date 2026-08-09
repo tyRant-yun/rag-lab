@@ -51,6 +51,9 @@ execute-search-tool = "rag_lab.tools.cli:execute_main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"rag_lab.api" = ["static/*"]
+
 [tool.pytest.ini_options]
 addopts = "-q"
 pythonpath = ["src"]

@@ -235,10 +235,8 @@ def create_app(
 
     @app.middleware("http")
     async def public_boundary(request: Request, call_next):
-        if (
-            request.url.path == "/api/v1/search"
-            and int(request.headers.get("content-length", "0")) > 8192
-        ):
+        is_public_search = request.url.path == "/api/v1/search"
+        if is_public_search and len(await request.body()) > 8192:
             return JSONResponse(
                 status_code=413,
                 content={
@@ -247,7 +245,19 @@ def create_app(
                     "request_id": f"req_{uuid4().hex}",
                 },
             )
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+        except Exception:
+            if is_public_search:
+                return JSONResponse(
+                    status_code=503,
+                    content={
+                        "code": "search_unavailable",
+                        "message": "服务暂时不可用，请稍后重试。",
+                        "request_id": f"req_{uuid4().hex}",
+                    },
+                )
+            raise
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; style-src 'self'; script-src 'self'"
