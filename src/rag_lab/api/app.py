@@ -176,6 +176,28 @@ class PublicSearchResponse(BaseModel):
     results: list[PublicSearchResult]
 
 
+class PublicKnowledgeBaseInfo(BaseModel):
+    """Public product metadata with no retrieval implementation details."""
+
+    model_config = ConfigDict(extra="forbid")
+    title: str
+    coverage: str
+    topics: list[str]
+    capabilities: list[str]
+    guidance: list[str]
+    limitations: list[str]
+
+
+_PUBLIC_KNOWLEDGE_BASE = PublicKnowledgeBaseInfo(
+    title="计算机网络基础知识库",
+    coverage="《计算机网络：自顶向下方法》第 1 章（第 19–61 页）",
+    topics=["因特网与协议", "网络边缘与接入网", "网络核心", "时延、丢包与吞吐量", "协议分层"],
+    capabilities=["定位概念的原文依据", "按章节和页码复习", "比较相关网络基础主题"],
+    guidance=["一次提出一个明确问题", "优先使用教材中的概念词", "结合章节和页码核对原文"],
+    limitations=["当前仅覆盖这一章内容", "结果是可核对的检索依据，不代替完整教材阅读"],
+)
+
+
 def create_app(
     *,
     chunks_path: Path | str,
@@ -291,6 +313,13 @@ def create_app(
     @app.get("/health/live", include_in_schema=False)
     def health_live() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get(
+        "/api/v1/knowledge-base",
+        response_model=PublicKnowledgeBaseInfo,
+    )
+    def public_knowledge_base() -> PublicKnowledgeBaseInfo:
+        return _PUBLIC_KNOWLEDGE_BASE
 
     @app.post("/api/v1/search", response_model=PublicSearchResponse)
     def public_search(payload: PublicSearchRequest) -> PublicSearchResponse:

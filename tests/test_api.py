@@ -245,6 +245,21 @@ def test_public_search_rejects_retriever_controls(tmp_path: Path):
     assert response.json()["code"] == "invalid_request"
 
 
+def test_public_knowledge_base_exposes_only_product_metadata(
+    tmp_path: Path,
+):
+    client, _ = make_client(tmp_path)
+
+    response = client.get("/api/v1/knowledge-base")
+
+    assert response.status_code == 200
+    assert set(response.json()) == {
+        "title", "coverage", "topics", "capabilities", "guidance", "limitations"
+    }
+    assert "collection" not in response.text
+    assert "source_path" not in response.text
+
+
 def test_public_search_checks_received_body_size(
     tmp_path: Path,
 ):

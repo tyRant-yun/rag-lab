@@ -8,18 +8,48 @@
   </head>
   <body>
     <main>
-      <p class="eyebrow">RAG LAB · 知识库检索</p>
-      <h1>找到可核对的知识依据</h1>
-      <p class="scope">面向已收录资料的检索结果；每条结果都附带章节与页码。</p>
-      <form id="search-form">
-        <label for="query">提出问题</label>
-        <div class="query-row">
-          <input id="query" name="query" maxlength="500" required placeholder="例如：什么是网络协议？" autocomplete="off">
-          <button type="submit">搜索</button>
+      <header class="hero">
+        <p class="eyebrow">RAG LAB · 可核对的学习检索</p>
+        <h1>从教材原文开始理解计算机网络</h1>
+        <p class="scope" id="coverage">正在读取知识库范围…</p>
+      </header>
+
+      <section class="overview" aria-labelledby="overview-title">
+        <div><h2 id="overview-title">这个知识库能帮你做什么？</h2><p>它帮你定位教材依据，而不是替代阅读。</p></div>
+        <ul id="capabilities" class="checklist"></ul>
+      </section>
+
+      <section class="search-panel" aria-labelledby="search-title">
+        <h2 id="search-title">提出一个问题</h2>
+        <p>例如询问概念、机制或章节之间的关系。</p>
+        <div class="examples" aria-label="示例问题">
+          <button type="button" data-query="什么是网络协议？">什么是网络协议？</button>
+          <button type="button" data-query="分组交换与电路交换有什么区别？">分组交换与电路交换有什么区别？</button>
+          <button type="button" data-query="什么会影响端到端时延？">什么会影响端到端时延？</button>
         </div>
-      </form>
-      <p id="status" role="status" aria-live="polite"></p>
-      <section id="results" aria-live="polite"></section>
+        <form id="search-form">
+          <label for="query">你的问题</label>
+          <div class="query-row">
+            <input id="query" name="query" maxlength="500" required placeholder="用教材中的概念词提问，通常更容易找到依据" autocomplete="off">
+            <button type="submit">查找依据</button>
+          </div>
+        </form>
+        <p id="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section id="results" aria-live="polite" aria-label="检索依据"></section>
+
+      <section class="how-to" aria-labelledby="how-to-title">
+        <h2 id="how-to-title">如何使用结果</h2>
+        <ol id="guidance"></ol>
+        <p class="citation-note">每条依据都标有章节与页码。阅读正文后，请回到教材原文核对上下文。</p>
+      </section>
+
+      <details class="documentation">
+        <summary>知识库说明与使用边界</summary>
+        <p id="topics"></p>
+        <ul id="limitations"></ul>
+      </details>
     </main>
     <template id="result-template">
       <article class="result-card">
