@@ -318,6 +318,23 @@ chunked/
 - `chunks.md`：人工检查 Chunk 内容和来源；
 - `chunking-report.json`：Chunker 处理统计。
 
+## 审计产物质量
+
+`audit-artifacts` 是只读、确定性的质量门。它会同时检查 Docling Markdown、
+Normalizer/Chunker 报告及 JSONL 引用完整性，并写出
+`artifact-quality-report.json`。错误返回退出码 `1`，输入或读取失败返回 `2`；
+警告不会单独阻断流水线。
+
+```powershell
+audit-artifacts `
+  --artifact-root "path\to\baseline" `
+  --output "path\to\quality-audits\artifact-quality-report.json"
+```
+
+可改为传入 `--docling-markdown`、`--normalization-report`、`--blocks`、
+`--chunking-report` 和 `--chunks` 五个显式路径。审计不会修正产物；内容修复
+必须通过 Normalizer 的代码或版本化 correction overlay 重新生成。
+
 ## 运行 BM25 检索
 
 以下命令中的 `path\to\...` 是占位符，必须替换成实际文件路径。
