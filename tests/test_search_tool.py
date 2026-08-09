@@ -203,7 +203,7 @@ def test_execute_rejects_empty_document_ids():
     )
 
     assert result["success"] is False
-    assert "document_ids" in result["error"]
+    assert result["error"] == "search request failed"
     assert retriever.calls == []
 
 

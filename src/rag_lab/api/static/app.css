@@ -1,0 +1,7 @@
+:root { color:#172033; background:#f6f5f0; font-family:system-ui,sans-serif; }
+body { margin:0; } main { max-width:760px; margin:0 auto; padding:10vh 24px; }
+.eyebrow { color:#52677c; font-weight:700; letter-spacing:.1em; } h1 { font-size:clamp(2rem,6vw,4rem); margin:.25rem 0; }
+.scope { color:#52606f; margin-bottom:2.5rem; } label { display:block; font-weight:700; margin-bottom:.6rem; }
+.query-row { display:flex; gap:.75rem; } input { flex:1; min-width:0; padding:1rem; border:1px solid #b8c2cb; border-radius:.6rem; font:inherit; } button { border:0; border-radius:.6rem; padding:1rem 1.4rem; background:#2459a6; color:white; font:inherit; font-weight:700; }
+#status { min-height:1.5rem; color:#52606f; } .result-card { margin:1rem 0; padding:1.25rem; background:white; border-radius:.7rem; box-shadow:0 4px 20px #17203313; } .content { white-space:pre-wrap; line-height:1.65; } .citation { color:#52677c; font-size:.9rem; font-weight:600; }
+@media (max-width:560px) { .query-row { flex-direction:column; } }

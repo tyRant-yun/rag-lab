@@ -2,8 +2,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
+from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -145,6 +150,32 @@ class SearchResponse(BaseModel):
     index_version: str
 
 
+class PublicSearchRequest(BaseModel):
+    """Stable browser-facing search contract."""
+
+    model_config = ConfigDict(extra="forbid")
+    query: str = Field(min_length=1, max_length=500)
+
+
+class PublicCitation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: str
+    section: str
+    pages: str
+
+
+class PublicSearchResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    content: str
+    citation: PublicCitation
+
+
+class PublicSearchResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    request_id: str
+    results: list[PublicSearchResult]
+
+
 def create_app(
     *,
     chunks_path: Path | str,
@@ -165,6 +196,7 @@ def create_app(
     stopwords: Sequence[str] = (),
     provider_factory=OllamaEmbeddingProvider,
     store_factory=build_qdrant_store,
+    enable_debug_routes: bool = True,
 ) -> FastAPI:
     """Build a retrieval API app over a chunks corpus and Qdrant."""
 
@@ -187,6 +219,7 @@ def create_app(
         store_factory=store_factory,
     )
 
+    static_directory = Path(__file__).with_name("static")
     app = FastAPI(
         title="RAG Lab Retrieval API",
         description=(
@@ -195,16 +228,97 @@ def create_app(
             "corpus."
         ),
         version="0.1.0",
+        docs_url="/docs" if enable_debug_routes else None,
+        openapi_url="/openapi.json" if enable_debug_routes else None,
     )
+    app.mount("/static", StaticFiles(directory=static_directory), name="static")
+
+    @app.middleware("http")
+    async def public_boundary(request: Request, call_next):
+        if (
+            request.url.path == "/api/v1/search"
+            and int(request.headers.get("content-length", "0")) > 8192
+        ):
+            return JSONResponse(
+                status_code=413,
+                content={
+                    "code": "request_too_large",
+                    "message": "请求内容过大。",
+                    "request_id": f"req_{uuid4().hex}",
+                },
+            )
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; style-src 'self'; script-src 'self'"
+        )
+        return response
+
+    @app.exception_handler(RequestValidationError)
+    async def public_validation_error(
+        request: Request,
+        exc: RequestValidationError,
+    ) -> JSONResponse:
+        if request.url.path == "/api/v1/search":
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "code": "invalid_request",
+                    "message": "请求格式不正确。",
+                    "request_id": f"req_{uuid4().hex}",
+                },
+            )
+        return await request_validation_exception_handler(request, exc)
+
+    @app.get("/", include_in_schema=False)
+    def web_mvp() -> FileResponse:
+        return FileResponse(static_directory / "index.html")
 
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.post(
-        "/search",
-        response_model=SearchResponse,
-    )
+    @app.get("/health/live", include_in_schema=False)
+    def health_live() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.post("/api/v1/search", response_model=PublicSearchResponse)
+    def public_search(payload: PublicSearchRequest) -> PublicSearchResponse:
+        request_id = f"req_{uuid4().hex}"
+        try:
+            result = components.retriever("rerank").search(
+                payload.query,
+                top_k=5,
+                filters=None,
+            )
+        except (TypeError, ValueError, OllamaEmbeddingError, QdrantVectorStoreError):
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "code": "search_unavailable",
+                    "message": "服务暂时不可用，请稍后重试。",
+                    "request_id": request_id,
+                },
+            )
+        return PublicSearchResponse(
+            request_id=request_id,
+            results=[
+                PublicSearchResult(
+                    content=hit.chunk.content,
+                    citation=PublicCitation(
+                        title=hit.chunk.heading_path[0],
+                        section=hit.chunk.heading_path[-1],
+                        pages=(
+                            str(hit.chunk.page_start)
+                            if hit.chunk.page_start == hit.chunk.page_end
+                            else f"{hit.chunk.page_start}-{hit.chunk.page_end}"
+                        ),
+                    ),
+                )
+                for hit in result.hits
+            ],
+        )
+
     def search(
         payload: SearchRequest,
     ) -> SearchResponse:
@@ -297,5 +411,8 @@ def create_app(
                 status_code=502,
                 detail=str(error),
             ) from error
+
+    if enable_debug_routes:
+        app.post("/search", response_model=SearchResponse)(search)
 
     return app

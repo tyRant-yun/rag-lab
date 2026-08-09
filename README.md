@@ -709,8 +709,7 @@ evaluate-rerank `
 
 ## 检索 API
 
-`rag_lab.api.create_app` 提供 FastAPI 应用，把 BM25 / Dense / Hybrid
-（RRF）/ Rerank 四种检索器暴露为 HTTP 接口。
+`rag_lab.api.create_app` 同时提供浏览器使用的稳定公开接口与本机调试接口。
 
 ### 安装与启动
 
@@ -725,33 +724,33 @@ serve-api `
 
 启动后访问：
 
-- Swagger UI：`http://127.0.0.1:8000/docs`
-- Health：`GET /health`
-- 检索：`POST /search`
+- MVP 页面：`http://127.0.0.1:8000/`
+- 存活检查：`GET /health/live`
+- 公开检索：`POST /api/v1/search`
+- 本机调试：Swagger UI 和 `POST /search`
 
-### 检索请求
+### 公开检索请求
 
 ```json
 {
-  "query": "什么是端系统",
-  "retriever": "rerank",
-  "top_k": 5
+  "query": "什么是端系统"
 }
 ```
 
-`retriever` 可选 `bm25` / `dense` / `hybrid` / `rerank`（默认 `rerank`）；
-可选的过滤与调参字段包括 `document_ids`、`heading_prefix`、
-`page_start`、`page_end`、`rrf_k`、`per_retriever_k`、`fetch_k` 与
-重排权重。响应为脱敏后的检索结果 JSON（默认不返回 `source_path`，
-如需溯源可传 `"include_source_path": true`）。
+公开接口固定使用 Hybrid + Rerank 与 Top-5，不接受检索器、权重、集合、
+模型、过滤器或路径控制参数。响应仅包含正文及稳定的标题、章节、页码引用。
+`/search` 保留给默认 `127.0.0.1` 的本机调试；以非回环地址启动时会禁用
+`/search`、`/docs` 与 `/openapi.json`。
 
 ```powershell
-curl.exe -X POST http://127.0.0.1:8000/search `
+curl.exe -X POST http://127.0.0.1:8000/api/v1/search `
   -H "Content-Type: application/json" `
-  -d "{\"query\":\"什么是端系统\",\"retriever\":\"rerank\",\"top_k\":5}"
+  -d "{\"query\":\"什么是端系统\"}"
 ```
 
-API 错误语义：参数校验失败返回 422，Ollama / Qdrant 上游失败返回 502。
+公开 API 的错误统一为 `{code, message, request_id}`；请求体上限为 8 KiB。
+公网部署仍需在同源反向代理后提供 TLS、认证/API key 和限流，不能直接把
+Uvicorn 暴露到公网。
 
 ## Agent 工具接入
 

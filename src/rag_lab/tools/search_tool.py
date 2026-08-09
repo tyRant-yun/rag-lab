@@ -192,10 +192,11 @@ class SearchKnowledgeTool:
             OllamaEmbeddingError,
             QdrantVectorStoreError,
         ) as error:
+            del error
             return {
                 "success": False,
                 "tool": self.TOOL_NAME,
-                "error": str(error),
+                "error": "search request failed",
             }
 
         return {

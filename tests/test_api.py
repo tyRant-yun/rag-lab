@@ -206,6 +206,43 @@ def test_search_defaults_to_rerank(tmp_path: Path):
     )
 
 
+def test_public_search_hides_internal_retrieval_fields(
+    tmp_path: Path,
+):
+    client, _ = make_client(tmp_path)
+
+    response = client.post(
+        "/api/v1/search",
+        json={"query": "TCP"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert set(payload) == {"request_id", "results"}
+    assert payload["request_id"].startswith("req_")
+    assert set(payload["results"][0]) == {"content", "citation"}
+    assert set(payload["results"][0]["citation"]) == {
+        "title",
+        "section",
+        "pages",
+    }
+    assert "source_path" not in response.text
+    assert "chunk_id" not in response.text
+    assert "index_version" not in response.text
+
+
+def test_public_search_rejects_retriever_controls(tmp_path: Path):
+    client, _ = make_client(tmp_path)
+
+    response = client.post(
+        "/api/v1/search",
+        json={"query": "TCP", "retriever": "bm25"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "invalid_request"
+
+
 def test_search_with_filters(tmp_path: Path):
     client, _ = make_client(tmp_path)
 

@@ -128,6 +128,9 @@ def main(
         ),
         user_words=arguments.user_words or (),
         stopwords=arguments.stopwords or (),
+        enable_debug_routes=(
+            arguments.bind_host in {"127.0.0.1", "localhost", "::1"}
+        ),
     )
     uvicorn.run(
         app,
