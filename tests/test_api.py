@@ -281,6 +281,10 @@ def test_public_knowledge_base_exposes_only_product_metadata(
     assert set(response.json()) == {
         "title", "coverage", "topics", "capabilities", "guidance", "limitations"
     }
+    assert response.json()["coverage"] == (
+        "《计算机网络：自顶向下方法》第 8 版的全部可读文本（第 5–501 页）"
+    )
+    assert response.json()["limitations"][0] == "当前仅覆盖这一本教材的可读文本"
     assert "collection" not in response.text
     assert "source_path" not in response.text
 
