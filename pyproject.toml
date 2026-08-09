@@ -14,22 +14,17 @@ dependencies = [
     "httpx>=0.27,<1",
     "ollama>=0.6.2,<0.7",
     "qdrant-client>=1.18,<2",
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.30,<1",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8,<9",
-    # test_api.py requires FastAPI/uvicorn, so dev must cover the api extra.
-    "fastapi>=0.115,<1",
-    "uvicorn>=0.30,<1",
 ]
 conversion = [
     "docling>=2,<3",
     "PyMuPDF>=1.28,<2",
-]
-api = [
-    "fastapi>=0.115,<1",
-    "uvicorn>=0.30,<1",
 ]
 
 [project.scripts]

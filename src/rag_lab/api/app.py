@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from uuid import uuid4
 
+import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.exception_handlers import request_validation_exception_handler
@@ -189,6 +190,31 @@ _PUBLIC_KNOWLEDGE_BASE = PublicKnowledgeBaseInfo(
 )
 
 
+def _apply_security_headers(response) -> None:
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; style-src 'self'; script-src 'self'"
+    )
+
+
+def _check_ollama_ready(*, host: str, model: str, timeout: float) -> None:
+    """Check the configured Ollama endpoint without generating embeddings."""
+
+    response = httpx.get(
+        f"{host.rstrip('/')}/api/tags",
+        timeout=min(timeout, 5.0),
+    )
+    response.raise_for_status()
+    payload = response.json()
+    available_models = {
+        item.get("name")
+        for item in payload.get("models", [])
+        if isinstance(item, dict)
+    }
+    if model not in available_models:
+        raise RuntimeError("configured Ollama model is unavailable")
+
+
 def create_app(
     *,
     chunks_path: Path | str,
@@ -211,6 +237,7 @@ def create_app(
     store_factory=build_qdrant_store,
     enable_debug_routes: bool = True,
     knowledge_base_info: PublicKnowledgeBaseInfo | None = None,
+    readiness_checker: Callable[[], None] | None = None,
 ) -> FastAPI:
     """Build a retrieval API app over a chunks corpus and Qdrant."""
 
@@ -233,6 +260,20 @@ def create_app(
         store_factory=store_factory,
     )
 
+    def default_readiness_check() -> None:
+        components.dense.validate_readiness()
+        _check_ollama_ready(
+            host=host,
+            model=model,
+            timeout=embedding_timeout_seconds,
+        )
+
+    active_readiness_checker = (
+        readiness_checker
+        if readiness_checker is not None
+        else default_readiness_check
+    )
+
     static_directory = Path(__file__).with_name("static")
     knowledge_base_metadata = (
         knowledge_base_info or _PUBLIC_KNOWLEDGE_BASE
@@ -253,8 +294,14 @@ def create_app(
     @app.middleware("http")
     async def public_boundary(request: Request, call_next):
         is_public_search = request.url.path == "/api/v1/search"
-        if is_public_search and len(await request.body()) > 8192:
-            return JSONResponse(
+        content_length = request.headers.get("content-length")
+        if (
+            is_public_search
+            and content_length is not None
+            and content_length.isdecimal()
+            and int(content_length) > 8192
+        ):
+            response = JSONResponse(
                 status_code=413,
                 content={
                     "code": "request_too_large",
@@ -262,11 +309,24 @@ def create_app(
                     "request_id": f"req_{uuid4().hex}",
                 },
             )
+            _apply_security_headers(response)
+            return response
+        if is_public_search and len(await request.body()) > 8192:
+            response = JSONResponse(
+                status_code=413,
+                content={
+                    "code": "request_too_large",
+                    "message": "请求内容过大。",
+                    "request_id": f"req_{uuid4().hex}",
+                },
+            )
+            _apply_security_headers(response)
+            return response
         try:
             response = await call_next(request)
         except Exception:
             if is_public_search:
-                return JSONResponse(
+                response = JSONResponse(
                     status_code=503,
                     content={
                         "code": "search_unavailable",
@@ -274,11 +334,10 @@ def create_app(
                         "request_id": f"req_{uuid4().hex}",
                     },
                 )
+                _apply_security_headers(response)
+                return response
             raise
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; style-src 'self'; script-src 'self'"
-        )
+        _apply_security_headers(response)
         return response
 
     @app.exception_handler(RequestValidationError)
@@ -308,6 +367,17 @@ def create_app(
     @app.get("/health/live", include_in_schema=False)
     def health_live() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/health/ready", include_in_schema=False)
+    def health_ready() -> dict[str, str]:
+        try:
+            active_readiness_checker()
+        except Exception:
+            return JSONResponse(
+                status_code=503,
+                content={"status": "not_ready"},
+            )
+        return {"status": "ready"}
 
     @app.get(
         "/api/v1/knowledge-base",

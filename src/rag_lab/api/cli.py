@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
+import os
 from pathlib import Path
 
 import uvicorn
@@ -27,28 +28,31 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--chunks",
         type=Path,
-        required=True,
-        help="Path to KnowledgeChunk JSONL.",
+        default=os.getenv("RAG_CHUNKS_PATH"),
+        help="Path to KnowledgeChunk JSONL (or RAG_CHUNKS_PATH).",
     )
     parser.add_argument(
         "--collection",
-        required=True,
-        help="Qdrant collection name.",
+        default=os.getenv("RAG_COLLECTION"),
+        help="Qdrant collection name (or RAG_COLLECTION).",
     )
     parser.add_argument(
         "--bind-host",
-        default="127.0.0.1",
-        help="Uvicorn bind host. Default: 127.0.0.1.",
+        default=os.getenv("RAG_BIND_HOST", "127.0.0.1"),
+        help="Uvicorn bind host (or RAG_BIND_HOST).",
     )
     parser.add_argument(
         "--port",
         type=int,
-        default=8000,
-        help="Uvicorn port. Default: 8000.",
+        default=int(os.getenv("RAG_PORT", "8000")),
+        help="Uvicorn port (or RAG_PORT).",
     )
     parser.add_argument(
         "--url",
-        default="http://localhost:6333",
+        default=os.getenv(
+            "RAG_QDRANT_URL",
+            "http://localhost:6333",
+        ),
         help=(
             "Qdrant server URL. Default: "
             "http://localhost:6333."
@@ -56,37 +60,54 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--model",
-        default=(
-            OllamaEmbeddingProvider.DEFAULT_MODEL
+        default=os.getenv(
+            "RAG_OLLAMA_MODEL",
+            OllamaEmbeddingProvider.DEFAULT_MODEL,
         ),
         help="Ollama embedding model.",
     )
     parser.add_argument(
         "--ollama-host",
-        default=(
-            OllamaEmbeddingProvider.DEFAULT_HOST
+        default=os.getenv(
+            "RAG_OLLAMA_HOST",
+            OllamaEmbeddingProvider.DEFAULT_HOST,
         ),
         help="Ollama server URL.",
     )
     parser.add_argument(
         "--dimensions",
         type=int,
-        default=(
-            OllamaEmbeddingProvider
-            .DEFAULT_DIMENSIONS
+        default=int(
+            os.getenv(
+                "RAG_EMBEDDING_DIMENSIONS",
+                str(
+                    OllamaEmbeddingProvider
+                    .DEFAULT_DIMENSIONS
+                ),
+            )
         ),
         help="Embedding dimensions. Default: 1024.",
     )
     parser.add_argument(
         "--embedding-timeout-seconds",
         type=float,
-        default=60.0,
+        default=float(
+            os.getenv(
+                "RAG_EMBEDDING_TIMEOUT_SECONDS",
+                "60",
+            )
+        ),
         help="Ollama request timeout.",
     )
     parser.add_argument(
         "--qdrant-timeout-seconds",
         type=int,
-        default=10,
+        default=int(
+            os.getenv(
+                "RAG_QDRANT_TIMEOUT_SECONDS",
+                "10",
+            )
+        ),
         help="Qdrant request timeout.",
     )
     parser.add_argument(
@@ -115,6 +136,19 @@ def build_parser() -> argparse.ArgumentParser:
             "will be shown in the browser UI."
         ),
     )
+    parser.add_argument(
+        "--enable-debug-routes",
+        action=argparse.BooleanOptionalAction,
+        default=os.getenv(
+            "RAG_ENABLE_DEBUG_ROUTES",
+            "",
+        ).lower()
+        in {"1", "true", "yes"},
+        help=(
+            "Enable /search, /docs and /openapi.json. Disabled by default; "
+            "set only for local development."
+        ),
+    )
 
     return parser
 
@@ -123,6 +157,10 @@ def main(
     argv: Sequence[str] | None = None,
 ) -> int:
     arguments = build_parser().parse_args(argv)
+    if arguments.chunks is None:
+        raise SystemExit("--chunks or RAG_CHUNKS_PATH is required")
+    if not arguments.collection:
+        raise SystemExit("--collection or RAG_COLLECTION is required")
     try:
         knowledge_base_info = (
             read_public_knowledge_base_info(
@@ -149,9 +187,7 @@ def main(
         ),
         user_words=arguments.user_words or (),
         stopwords=arguments.stopwords or (),
-        enable_debug_routes=(
-            arguments.bind_host in {"127.0.0.1", "localhost", "::1"}
-        ),
+        enable_debug_routes=arguments.enable_debug_routes,
         knowledge_base_info=knowledge_base_info,
     )
     uvicorn.run(
