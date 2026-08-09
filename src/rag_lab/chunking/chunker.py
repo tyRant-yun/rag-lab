@@ -24,6 +24,12 @@ _CONTROL_BLOCK_TYPES: frozenset[str] = frozenset(
     }
 )
 
+_NON_INDEXABLE_BLOCK_TYPES: frozenset[str] = frozenset(
+    {
+        BlockType.FIGURE_LABEL.value,
+    }
+)
+
 _BODY_BLOCK_TYPES: frozenset[str] = frozenset(
     {
         BlockType.PARAGRAPH.value,
@@ -238,6 +244,9 @@ def _group_body_blocks(
         current_blocks = []
 
     for block in ordered_blocks:
+        if block.block_type in _NON_INDEXABLE_BLOCK_TYPES:
+            continue
+
         if _is_control_block(block):
             flush_current_group()
             continue

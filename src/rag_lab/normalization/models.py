@@ -16,11 +16,15 @@ class NormalizationReport:
     removed_furniture_count: int
     reordered_block_count: int
     downgraded_heading_count: int
+    merged_orphan_punctuation_count: int
+    non_indexed_orphan_punctuation_count: int
     short_fragment_ratio: float
     pages_requiring_review: tuple[int, ...]
+    correction_summary: dict[str, int] | None = None
+    correction_overlay: dict[str, object] | None = None
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "document_id": self.document_id,
             "normalization_version": (
                 self.normalization_version
@@ -40,6 +44,12 @@ class NormalizationReport:
             "downgraded_heading_count": (
                 self.downgraded_heading_count
             ),
+            "merged_orphan_punctuation_count": (
+                self.merged_orphan_punctuation_count
+            ),
+            "non_indexed_orphan_punctuation_count": (
+                self.non_indexed_orphan_punctuation_count
+            ),
             "short_fragment_ratio": round(
                 self.short_fragment_ratio,
                 6,
@@ -48,6 +58,17 @@ class NormalizationReport:
                 self.pages_requiring_review
             ),
         }
+
+        if self.correction_summary is not None:
+            payload["correction_summary"] = dict(
+                self.correction_summary
+            )
+        if self.correction_overlay is not None:
+            payload["correction_overlay"] = dict(
+                self.correction_overlay
+            )
+
+        return payload
 
 
 @dataclass(frozen=True, slots=True)

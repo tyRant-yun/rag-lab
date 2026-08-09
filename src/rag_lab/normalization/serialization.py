@@ -212,6 +212,12 @@ def _render_markdown_block(
 
         return f"*{block.text}*"
 
+    if block.block_type == BlockType.FIGURE_LABEL.value:
+        return (
+            "<!-- non-indexable figure label: "
+            f"{block.text} -->"
+        )
+
     return block.text
 
 

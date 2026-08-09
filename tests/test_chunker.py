@@ -10,6 +10,7 @@ from rag_lab.chunking.chunker import (
     _ATOMIC_BODY_TYPES,
     _BODY_BLOCK_TYPES,
     _CONTROL_BLOCK_TYPES,
+    _NON_INDEXABLE_BLOCK_TYPES,
     _SPLITTABLE_BODY_TYPES,
     _CandidateGroup,
     _ChunkDraft,
@@ -283,6 +284,7 @@ def test_block_roles_cover_all_supported_types():
     assert (
         _CONTROL_BLOCK_TYPES
         | _BODY_BLOCK_TYPES
+        | _NON_INDEXABLE_BLOCK_TYPES
     ) == supported_types
 
 
@@ -1435,6 +1437,20 @@ def test_control_only_document_returns_empty_chunks():
     result = chunk_normalized_blocks(
         blocks=[title]
     )
+
+    assert result.chunks == []
+    assert result.report.input_block_count == 1
+    assert result.report.output_chunk_count == 0
+
+
+def test_figure_labels_are_preserved_but_not_chunked():
+    label = build_block(
+        ordinal=1,
+        text="La",
+        block_type=BlockType.FIGURE_LABEL.value,
+    )
+
+    result = chunk_normalized_blocks(blocks=[label])
 
     assert result.chunks == []
     assert result.report.input_block_count == 1

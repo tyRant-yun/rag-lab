@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0",
+  "book_id": "computer-networking-top-down-8e",
+  "source_sha256": "fef1b562abea48b141fabdee49cb9bcc7c7fecd400b416affd5811543da52592",
+  "replacements": [
+    {"section_id": "chapter-01", "page": 35, "marker_source_ref": "#/texts/306", "replacement": "d_end-end = N × (L/R)  (1-1)"},
+    {"section_id": "chapter-01", "page": 44, "marker_source_ref": "#/texts/477", "replacement": "d_nodal = d_proc + d_queue + d_trans + d_prop"},
+    {"section_id": "chapter-01", "page": 46, "marker_source_ref": "#/texts/512", "replacement": "d_end-end = N(d_proc + d_trans + d_prop)  (1-2)"},
+
+    {"section_id": "chapter-02", "page": 110, "marker_source_ref": "#/texts/790", "replacement": "D_cs ≥ max{NF/u_s, F/d_min}"},
+    {"section_id": "chapter-02", "page": 110, "marker_source_ref": "#/texts/792", "replacement": "D_cs = max{NF/u_s, F/d_min}  (2-1)"},
+    {"section_id": "chapter-02", "page": 110, "marker_source_ref": "#/texts/799", "replacement": "D_P2P ≥ max{F/u_s, F/d_min, NF/(u_s + Σ_{i=1}^{N} u_i)}  (2-2)"},
+    {"section_id": "chapter-02", "page": 111, "marker_source_ref": "#/texts/803", "replacement": "D_P2P = max{F/u_s, F/d_min, NF/(u_s + Σ_{i=1}^{N} u_i)}  (2-3)"},
+
+    {"section_id": "chapter-03", "page": 158, "marker_source_ref": "#/texts/617", "replacement": "U_sender = (L/R)/(RTT + L/R) = 0.008/30.008 = 0.00027"},
+    {"section_id": "chapter-03", "page": 198, "marker_source_ref": "#/texts/1751", "replacement": "一条连接的平均吞吐量 = (0.75 × W)/RTT"},
+    {"section_id": "chapter-03", "page": 212, "marker_source_ref": "#/texts/2117", "replacement": "L = 丢包率 = 1/((3/8)W² + (3/4)W)"},
+    {"section_id": "chapter-03", "page": 212, "marker_source_ref": "#/texts/2119", "replacement": "平均速率 ≈ (1.22 MSS)/(RTT√L)"},
+
+    {"section_id": "chapter-05", "page": 272, "marker_source_ref": "#/texts/177", "replacement": "d_x(y) = min_v{c(x, v) + d_v(y)}  (5-1)"},
+    {"section_id": "chapter-05", "page": 273, "marker_source_ref": "#/texts/189", "replacement": "D_x(y) = min_v{c(x, v) + D_v(y)}，对 N 中的每个节点"},
+    {"section_id": "chapter-05", "page": 274, "marker_source_ref": "#/texts/208", "replacement": "D_x(x) = 0\nD_x(y) = min{c(x, y) + D_y(y), c(x, z) + D_z(y)} = min{2 + 0, 7 + 1} = 2\nD_x(z) = min{c(x, y) + D_y(z), c(x, z) + D_z(z)} = min{2 + 1, 7 + 0} = 3"},
+
+    {"section_id": "chapter-06", "page": 318, "marker_source_ref": "#/texts/186", "replacement": "1011 − 0101 = 1110\n1001 − 1101 = 0100"},
+    {"section_id": "chapter-06", "page": 318, "marker_source_ref": "#/texts/190", "replacement": "D · 2^r XOR R = nG"},
+    {"section_id": "chapter-06", "page": 318, "marker_source_ref": "#/texts/191", "replacement": "D · 2^r = nG XOR R"},
+    {"section_id": "chapter-06", "page": 319, "marker_source_ref": "#/texts/195", "replacement": "R = remainder((D · 2^r)/G)"},
+    {"section_id": "chapter-06", "page": 319, "marker_source_ref": "#/texts/199", "replacement": "G_CRC-32 = 100000100110000010001110110110111"},
+    {"section_id": "chapter-06", "page": 327, "marker_source_ref": "#/texts/420", "replacement": "效率 = 1/(1 + 5d_prop/d_trans)"},
+
+    {"section_id": "chapter-07", "page": 371, "marker_source_ref": "#/texts/149", "replacement": "Z_i,m = d_i · c_m  (7-1)"},
+    {"section_id": "chapter-07", "page": 371, "marker_source_ref": "#/texts/151", "replacement": "d_i = (1/M) Σ_{m=1}^{M} Z_i,m · c_m  (7-2)"},
+    {"section_id": "chapter-07", "page": 372, "marker_source_ref": "#/texts/307", "replacement": "Z*_i,m = Σ_{s=1}^{N} Z^s_i,m"},
+    {"section_id": "chapter-07", "page": 373, "marker_source_ref": "#/texts/310", "replacement": "d_i = (1/M) Σ_{m=1}^{M} Z*_i,m · c_m  (7-3)"},
+
+    {"section_id": "chapter-08", "page": 425, "marker_source_ref": "#/texts/191", "replacement": "[(a mod n) + (b mod n)] mod n = (a + b) mod n\n[(a mod n) − (b mod n)] mod n = (a − b) mod n\n[(a mod n) · (b mod n)] mod n = (a · b) mod n\n(a mod n)^d mod n = a^d mod n"},
+    {"section_id": "chapter-08", "page": 425, "marker_source_ref": "#/texts/204", "replacement": "ed mod z = 1"},
+    {"section_id": "chapter-08", "page": 425, "marker_source_ref": "#/texts/207", "replacement": "c = m^e mod n"},
+    {"section_id": "chapter-08", "page": 426, "marker_source_ref": "#/texts/212", "replacement": "m = c^d mod n"},
+    {"section_id": "chapter-08", "page": 427, "marker_source_ref": "#/texts/223", "replacement": "c = m^e mod n"},
+    {"section_id": "chapter-08", "page": 427, "marker_source_ref": "#/texts/224", "replacement": "(m^e mod n)^d mod n = m^ed mod n"},
+    {"section_id": "chapter-08", "page": 427, "marker_source_ref": "#/texts/228", "replacement": "m^ed mod n = m^(ed mod z) mod n"},
+    {"section_id": "chapter-08", "page": 427, "marker_source_ref": "#/texts/229", "replacement": "m^ed mod n = m^1 mod n = m"},
+    {"section_id": "chapter-08", "page": 427, "marker_source_ref": "#/texts/232", "replacement": "(m^d mod n)^e mod n = m^de mod n = m^ed mod n = (m^e mod n)^d mod n"}
+  ]
+}

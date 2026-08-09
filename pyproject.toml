@@ -25,6 +25,7 @@ dev = [
 ]
 conversion = [
     "docling>=2,<3",
+    "PyMuPDF>=1.28,<2",
 ]
 api = [
     "fastapi>=0.115,<1",
@@ -47,9 +48,13 @@ index-qdrant = "rag_lab.vector_store.cli:main"
 serve-api = "rag_lab.api.cli:main"
 search-tool-schema = "rag_lab.tools.cli:schema_main"
 execute-search-tool = "rag_lab.tools.cli:execute_main"
+audit-artifacts = "rag_lab.quality.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"rag_lab.api" = ["static/*"]
 
 [tool.pytest.ini_options]
 addopts = "-q"

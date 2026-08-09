@@ -1,0 +1,216 @@
+{
+  "schema_version": "1.0",
+  "document_id": "sha256:fef1b562abea48b141fabdee49cb9bcc7c7fecd400b416affd5811543da52592",
+  "corrections": [
+    {
+      "id": "page-26-dsl-intro-colon",
+      "page": 26,
+      "operation": "merge_text",
+      "source_refs": ["#/texts/130", "#/texts/137"],
+      "before_text": "转换回数字形式。",
+      "after_text": "高速下行信道",
+      "replacement": "住宅电话线同时承载了数据和传统的电话信号，它们用不同的频率进行编码：",
+      "block_type": "paragraph",
+      "reason": "Merge a Docling-split colon into its introducing sentence."
+    },
+    {
+      "id": "page-26-dsl-downstream-semicolon",
+      "page": 26,
+      "operation": "merge_text",
+      "source_refs": ["#/texts/132", "#/texts/133"],
+      "before_text": "不同的频率进行编码：",
+      "after_text": "中速上行信道",
+      "replacement": "高速下行信道，位于 50kHz～1MHz 频段；",
+      "block_type": "list_item",
+      "reason": "Merge a Docling-split list-item semicolon."
+    },
+    {
+      "id": "page-26-dsl-upstream-semicolon",
+      "page": 26,
+      "operation": "merge_text",
+      "source_refs": ["#/texts/135", "#/texts/136"],
+      "before_text": "50kHz～1MHz 频段；",
+      "after_text": "普通的双向电话信道",
+      "replacement": "中速上行信道，位于 4kHz～50kHz 频段；",
+      "block_type": "list_item",
+      "reason": "Merge a Docling-split list-item semicolon."
+    },
+    {
+      "id": "page-35-end-to-end-pipeline-equation",
+      "page": 35,
+      "operation": "insert_equation",
+      "marker_line": 360,
+      "marker_source_ref": "#/texts/308",
+      "source_refs": ["#/texts/305"],
+      "before_text": "在时刻 4 L/R",
+      "after_text": "P 个分组经过 N 条链路",
+      "replacement": "d_end-end = N L/R  （1-1）",
+      "reason": "Restore the displayed equation verified against the source PDF; Docling emitted formula-not-decoded."
+    },
+    {
+      "id": "page-44-nodal-delay-equation",
+      "page": 44,
+      "operation": "insert_equation",
+      "marker_line": 576,
+      "marker_source_ref": "#/texts/479",
+      "source_refs": ["#/texts/477"],
+      "before_text": "交互式动画",
+      "after_text": "这些时延成分所起的作用",
+      "replacement": "d_nodal = d_proc + d_queue + d_trans + d_prop",
+      "reason": "Restore the displayed equation verified against the source PDF; Docling emitted formula-not-decoded."
+    },
+    {
+      "id": "page-45-queue-reading-order",
+      "page": 45,
+      "operation": "merge_text",
+      "source_refs": ["#/texts/488", "#/texts/490", "#/texts/492", "#/texts/493", "#/texts/489", "#/texts/491"],
+      "before_text": "作为练习。",
+      "after_text": "图 1-18 的一个重要方面",
+      "replacement": "以上描述周期性到达的两个例子有些学术味。通常，到达队列的过程是随机的，即到达并不遵循任何模式，分组之间的时间间隔是随机的。在这种更为真实的情况下，La/R 通常不足以全面地表征时延的统计量。不过，直观地理解排队时延的范围很有用。特别是，如果流量强度接近 0，则几乎没有分组到达并且到达间隔很大，那么到达的分组将不可能在队列中发现别的分组。因此，平均排队时延将接近 0。另一方面，当流量强度接近 1 时，当到达速率超过传输能力（由于分组到达速率的波动）时将存在时间间隔，在这些时段中将形成队列，当到达速率小于传输能力时，队列的长度将缩短。无论如何，随着流量强度接近 1，平均排队长度变得越来越长。平均排队时延与流量强度的定性关系如图 1-18 所示。",
+      "block_type": "paragraph",
+      "reason": "Restore the source-PDF reading order and absorb split punctuation."
+    },
+    {
+      "id": "page-45-queue-figure-label-la",
+      "page": 45,
+      "operation": "exclude_from_index",
+      "source_refs": ["#/texts/498"],
+      "before_text": "经受的时延就可能很大。",
+      "after_text": "/",
+      "reason": "Keep the figure-only La/R glyph out of retrieval chunks without deleting source provenance."
+    },
+    {
+      "id": "page-45-queue-figure-label-slash",
+      "page": 45,
+      "operation": "exclude_from_index",
+      "source_refs": ["#/texts/499"],
+      "before_text": "La",
+      "after_text": "R",
+      "reason": "Keep the figure-only La/R glyph out of retrieval chunks without deleting source provenance."
+    },
+    {
+      "id": "page-45-queue-figure-label-r",
+      "page": 45,
+      "operation": "exclude_from_index",
+      "source_refs": ["#/texts/500"],
+      "before_text": "/",
+      "after_text": "图 1-18 平均排队时延",
+      "reason": "Keep the figure-only La/R glyph out of retrieval chunks without deleting source provenance."
+    },
+    {
+      "id": "page-46-loss-heading",
+      "page": 46,
+      "operation": "reclassify_block",
+      "source_refs": ["#/texts/504"],
+      "before_text": "队列慢慢地建立起来。",
+      "after_text": "在上述讨论中",
+      "block_type": "section_heading",
+      "reason": "Reclassify the standalone topic label as a heading and rebase following heading paths."
+    },
+    {
+      "id": "page-46-end-to-end-delay-equation",
+      "page": 46,
+      "operation": "insert_equation",
+      "marker_line": 648,
+      "marker_source_ref": "#/texts/514",
+      "source_refs": ["#/texts/508"],
+      "before_text": "1.4.3 端到端时延",
+      "after_text": "同样，式中 d trans",
+      "replacement": "d_end-end = N(d_proc + d_trans + d_prop)  （1-2）",
+      "reason": "Restore the displayed equation verified against the source PDF; Docling emitted formula-not-decoded."
+    },
+    {
+      "id": "page-48-throughput-figure-label-b",
+      "page": 48,
+      "operation": "exclude_from_index",
+      "source_refs": ["#/texts/540"],
+      "before_text": "协议等问题。",
+      "after_text": "）",
+      "reason": "Keep the figure-only panel label out of retrieval chunks without deleting source provenance."
+    },
+    {
+      "id": "page-48-throughput-figure-label-close",
+      "page": 48,
+      "operation": "exclude_from_index",
+      "source_refs": ["#/texts/541"],
+      "before_text": "b",
+      "after_text": "图 1-19 一个文件",
+      "reason": "Keep the figure-only panel label out of retrieval chunks without deleting source provenance."
+    },
+    {
+      "id": "page-50-orphan-period",
+      "page": 50,
+      "operation": "exclude_from_index",
+      "source_refs": ["#/texts/607"],
+      "before_text": "图 1-21 乘飞机旅行",
+      "after_text": "图 1-22 将航空功能",
+      "reason": "Retain the source-derived orphan punctuation as non-indexable provenance."
+    },
+    {
+      "id": "page-52-ietf-url-spacing",
+      "page": 52,
+      "operation": "replace_text",
+      "source_refs": ["#/texts/661"],
+      "before_text": "（1）应用层",
+      "after_text": "应用层",
+      "find_text": "www. ietf. org",
+      "replacement": "www.ietf.org",
+      "reason": "Repair the source-derived URL spacing without changing surrounding content."
+    },
+    {
+      "id": "page-52-stack-figure-label-application",
+      "page": 52,
+      "operation": "exclude_from_index",
+      "source_refs": ["#/texts/663"],
+      "before_text": "www.ietf.org",
+      "after_text": "运输层",
+      "reason": "Keep the protocol-stack figure label out of retrieval chunks without deleting source provenance."
+    },
+    {
+      "id": "page-52-stack-figure-label-transport",
+      "page": 52,
+      "operation": "exclude_from_index",
+      "source_refs": ["#/texts/664"],
+      "before_text": "应用层",
+      "after_text": "网络层",
+      "reason": "Keep the protocol-stack figure label out of retrieval chunks without deleting source provenance."
+    },
+    {
+      "id": "page-52-stack-figure-label-network",
+      "page": 52,
+      "operation": "exclude_from_index",
+      "source_refs": ["#/texts/665"],
+      "before_text": "运输层",
+      "after_text": "链路层",
+      "reason": "Keep the protocol-stack figure label out of retrieval chunks without deleting source provenance."
+    },
+    {
+      "id": "page-52-stack-figure-label-link",
+      "page": 52,
+      "operation": "exclude_from_index",
+      "source_refs": ["#/texts/666"],
+      "before_text": "网络层",
+      "after_text": "物理层",
+      "reason": "Keep the protocol-stack figure label out of retrieval chunks without deleting source provenance."
+    },
+    {
+      "id": "page-52-stack-figure-label-physical",
+      "page": 52,
+      "operation": "exclude_from_index",
+      "source_refs": ["#/texts/667"],
+      "before_text": "链路层",
+      "after_text": "5 层因特网协议栈",
+      "reason": "Keep the protocol-stack figure label out of retrieval chunks without deleting source provenance."
+    },
+    {
+      "id": "page-52-stack-figure-caption",
+      "page": 52,
+      "operation": "reclassify_block",
+      "source_refs": ["#/texts/669"],
+      "before_text": "5 层因特网协议栈",
+      "after_text": "应用层协议分布",
+      "block_type": "figure_caption",
+      "reason": "Preserve the contextual diagram caption as a caption instead of a generic paragraph."
+    }
+  ]
+}

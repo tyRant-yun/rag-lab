@@ -15,30 +15,29 @@ RAG Lab 是一个本地知识库项目，用于把源文档转换成可追踪、
 9. BM25 和 Embedding 真实样本基线报告；
 10. Qdrant 向量存储、Dense Retriever 与检索 CLI；
 11. Dense 检索评估 CLI 与真实样本基线报告。
+12. Hybrid RRF 融合检索与词法 Rerank；
+13. Retrieval API；
+14. 可由 Agent 调用的 `search_knowledge` 知识库工具。
 
 README 路线各阶段已全部落地；持久化词法索引、多文档增量索引与
 生产化部署属于后续工作。Embedding 基线只记录统计信息，不保存原始向量。
+路线功能完成不等于语料质量已完成：真实教材产物仍须经过版本化的质量审计
+和可复现修复，不能据此宣称生产就绪。
 
 ## 整体流程
 
 ```text
-源 PDF
-  ↓
-Docling JSON
-  ↓ Normalizer
-NormalizedBlock / blocks.jsonl
-  ↓ Chunker
-KnowledgeChunk / chunks.jsonl
-  ├─ LexicalAnalyzer → BM25Index → BM25Retriever
-  │    ↓
-  │  SearchResult → RetrievalEvaluator → BM25 基线报告
-  │
-  └─ OllamaEmbeddingProvider → QdrantVectorStore → DenseRetriever
-       ↓                                      ↓
-     EmbeddingRunReport         SearchResult → RetrievalEvaluator → Dense 基线报告
+Docling
+  → Normalizer
+  → Chunker
+  → BM25 / Dense
+  → Hybrid
+  → Rerank
+  → API / Agent Tool
 ```
 
 Markdown 文件只用于人工检查，JSONL 文件才是下游机器接口。
+详细的依赖方向与读写边界见 [architecture.md](docs/architecture.md)。
 
 ## 模块职责
 
@@ -53,7 +52,11 @@ Markdown 文件只用于人工检查，JSONL 文件才是下游机器接口。
 - **DenseRetriever**：负责查询向量化、Qdrant 向量检索和 `SearchResult` 转换。
 - **Hybrid Retriever**：使用 Reciprocal Rank Fusion（RRF）融合
   BM25 与 Dense 的排名结果。
-- **Agent**：通过 `search_knowledge` 工具使用知识库。
+- **RerankedRetriever**：在 Hybrid 候选窗口上执行重排；其 `elapsed_ms`
+  覆盖基础检索和重排的完整时长。
+- **Retrieval API / Agent Tool**：复用同一套 `RetrievalComponents` 公开检索
+  入口；API 不生成最终答案，`search_knowledge` 也只是完整 Agent Runtime
+  可调用的知识库工具，不是 LLM Agent 循环。
 
 Chunker 只读取 `blocks.jsonl`，不读取 PDF、Docling JSON 或人工审阅 Markdown。
 
@@ -65,7 +68,8 @@ src/rag_lab/
 │   ├── blocks.py
 │   ├── chunks.py
 │   ├── embeddings.py
-│   └── search.py
+│   ├── search.py
+│   └── vector_store.py
 ├── normalization/
 │   ├── cli.py
 │   ├── models.py
@@ -77,24 +81,26 @@ src/rag_lab/
 │   ├── chunker.py
 │   └── serialization.py
 ├── retrieval/
-│   ├── serialization.py
 │   ├── lexical/
 │   │   └── analyzer.py
 │   ├── bm25/
 │   │   ├── index.py
 │   │   ├── retriever.py
 │   │   └── cli.py
-│   └── dense/
-│       ├── retriever.py
-│       └── cli.py
-│   └── hybrid/
-│       ├── retriever.py
-│       └── cli.py
-│   └── rerank/
-│       ├── protocol.py
-│       ├── lexical.py
-│       ├── retriever.py
-│       └── cli.py
+│   ├── dense/
+│   │   ├── retriever.py
+│   │   └── cli.py
+│   ├── hybrid/
+│   │   ├── retriever.py
+│   │   └── cli.py
+│   ├── rerank/
+│   │   ├── protocol.py
+│   │   ├── lexical.py
+│   │   ├── retriever.py
+│   │   └── cli.py
+│   ├── factory.py
+│   ├── rendering.py
+│   └── serialization.py
 ├── embeddings/
 │   ├── provider.py
 │   ├── ollama.py
@@ -112,13 +118,18 @@ src/rag_lab/
 │   ├── dense_cli.py
 │   ├── hybrid_cli.py
 │   └── rerank_cli.py
+├── quality/
+│   ├── auditor.py
+│   ├── cli.py
+│   ├── models.py
+│   └── serialization.py
 ├── api/
 │   ├── app.py
 │   └── cli.py
-└── tools/
-    ├── search_tool.py
-    ├── retrieval_toolset.py
-    └── cli.py
+├── tools/
+│   ├── search_tool.py
+│   ├── retrieval_toolset.py
+│   └── cli.py
 ```
 
 `rag_lab.contracts` 存放共享产品契约，导入它不会加载 Normalizer、
@@ -241,7 +252,8 @@ python -m rag_lab.normalization.cli `
   --input-json "path\to\document.docling.json" `
   --source "path\to\source.pdf" `
   --output "path\to\normalized" `
-  --normalization-version "1.1.0"
+  --normalization-version "1.2.0" `
+  --correction-overlay "corrections\computer_networking\chapter_01_v5.json"
 ```
 
 使用安装后的命令：
@@ -251,7 +263,8 @@ normalize-docling `
   --input-json "path\to\document.docling.json" `
   --source "path\to\source.pdf" `
   --output "path\to\normalized" `
-  --normalization-version "1.1.0"
+  --normalization-version "1.2.0" `
+  --correction-overlay "corrections\computer_networking\chapter_01_v5.json"
 ```
 
 Normalizer 产物：
@@ -262,6 +275,12 @@ normalized/
 ├── document.md
 └── normalization-report.json
 ```
+
+`--correction-overlay` 是可选的、版本化 JSON。每条规则都以 Docling
+`source_ref`、页码和前后文本锚定；它只能在生成 block ID 之前合并、替换、
+重排、改分类、排除图中标签或补入经人工核对的公式。`figure_label` 仍留在
+规范化产物中以保留来源，但不会进入检索 chunk；报告会记录
+`correction_summary`，包括已恢复公式数量。
 
 ## 运行 Chunker
 
@@ -301,6 +320,124 @@ chunked/
 - `chunks.jsonl`：后续索引和检索使用的结构化接口；
 - `chunks.md`：人工检查 Chunk 内容和来源；
 - `chunking-report.json`：Chunker 处理统计。
+
+## 审计产物质量
+
+`audit-artifacts` 是只读、确定性的质量门。它会同时检查 Docling Markdown、
+Normalizer/Chunker 报告及 JSONL 引用完整性，并写出
+`artifact-quality-report.json`。错误返回退出码 `1`，输入或读取失败返回 `2`；
+警告不会单独阻断流水线。
+
+```powershell
+audit-artifacts `
+  --artifact-root "path\to\baseline" `
+  --output "path\to\quality-audits\artifact-quality-report.json"
+```
+
+可改为传入 `--docling-markdown`、`--normalization-report`、`--blocks`、
+`--chunking-report` 和 `--chunks` 五个显式路径。审计不会修正产物；内容修复
+必须通过 Normalizer 的代码或版本化 correction overlay 重新生成。
+
+V5 复核时，Docling Markdown 仍是只读的 V4 转换源，因此必须显式提供它：
+
+```powershell
+audit-artifacts `
+  --artifact-root "D:\rag-lab\computer-networking\output\chapter-01\baseline-v5" `
+  --docling-markdown "D:\rag-lab\computer-networking\output\chapter-01\baseline-v4-final\chapter-01-pages-019-061.md" `
+  --output "D:\rag-lab\computer-networking\output\chapter-01\quality-audits\baseline-v5-artifact-quality-report.json"
+```
+
+## 构建全书语料
+
+`configs/computer_networking/networking_top_down_8e.json` 固定了《计算机
+网络：自顶向下方法》第 8 版的原文件 SHA-256、可读文本范围（PDF 第 5–501
+页）和 11 个不重叠 section。封面和折页没有可检索正文；目录会保留在审计
+产物中，但不会写入检索语料，以免重复标题干扰召回。
+
+全书构建使用标准 Docling 后端、关闭 Windows 上不必要的 `torch.compile`，
+启用公式识别，并自动以 UTF-8 模式重启脚本。只有与同页相邻正文可以明确
+归属的独立标点才会归并；其余会保留为非索引来源记录，不会伪造文本关系。
+每个 section 都会依次转换、规范化、分块并运行 `audit-artifacts`；任一
+section 有 error 时不会生成全书 `corpus`。输出目录必须是新版本，脚本不会
+覆盖已经接受过的产物。
+
+```powershell
+python -m pip install -e ".[conversion,api,dev]"
+
+python scripts\ingest_book.py `
+  --manifest "configs\computer_networking\networking_top_down_8e.json" `
+  --source "D:\rag-lab\computer-networking\input\networking-top-down-8e.pdf" `
+  --output "D:\rag-lab\computer-networking\output\full-book-v2"
+```
+
+成功后，检索和索引只使用以下聚合文件，不直接拼接单章 JSONL：
+
+```text
+computer-networking/output/full-book-v2/
+├── sections/<section-id>/
+│   ├── <section-id>.docling.json
+│   ├── normalized/
+│   ├── chunked-max1200-overlap120/
+│   └── artifact-quality-report.json
+└── corpus/
+    ├── chunks.jsonl
+    └── corpus-manifest.json
+```
+
+### 从已有 Docling 转换快速修复公式
+
+如果已经有完整但公式审计失败的转换（本仓库的 `full-book-v1`），不要手改
+Markdown 或 JSONL，也不必重新转换全书。下面的路径只读取原 PDF 的 33 个
+`formula-not-decoded` 来源区域，生成带页码、marker source ref、相邻文本锚点和
+correction ID 的 section-local overlay；随后重新规范化、分块与审计。所有输出目录
+必须是新版本。
+
+```powershell
+python scripts\recognize_formula_markers.py `
+  --manifest "configs\computer_networking\networking_top_down_8e.json" `
+  --source "D:\rag-lab\computer-networking\input\networking-top-down-8e.pdf" `
+  --conversion-root "D:\rag-lab\computer-networking\output\full-book-v1" `
+  --output "D:\rag-lab\computer-networking\output\full-book-v7-formula-native-evidence"
+
+python scripts\build_formula_overlays.py `
+  --manifest "configs\computer_networking\networking_top_down_8e.json" `
+  --replacements "configs\computer_networking\full_book_v1_formula_replacements.json" `
+  --evidence "D:\rag-lab\computer-networking\output\full-book-v7-formula-native-evidence\formula-native-text.json" `
+  --output "D:\rag-lab\computer-networking\output\full-book-v1-formula-overlays"
+
+python scripts\remediate_existing_book.py `
+  --manifest "configs\computer_networking\networking_top_down_8e.json" `
+  --source "D:\rag-lab\computer-networking\input\networking-top-down-8e.pdf" `
+  --existing-docling-root "D:\rag-lab\computer-networking\output\full-book-v1" `
+  --correction-root "D:\rag-lab\computer-networking\output\full-book-v1-formula-overlays" `
+  --output "D:\rag-lab\computer-networking\output\full-book-v4"
+```
+
+`full-book-v4` 是当前已验证的全书产物；`full-book-v2`/`v3` 是保留的中间诊断
+目录，不能作为索引输入。
+
+创建一个新 collection（不要复用 chapter-01 或 MVP smoke collection）：
+
+```powershell
+index-qdrant `
+  --chunks "D:\rag-lab\computer-networking\output\full-book-v4\corpus\chunks.jsonl" `
+  --collection "computer-networking-full-v4" `
+  --url "http://127.0.0.1:6333" `
+  --model "qwen3-embedding:0.6b" `
+  --dimensions 1024 `
+  --batch-size 8 `
+  --json
+```
+
+将公开页面范围说明同步到已验证的全书 corpus：
+
+```powershell
+serve-api `
+  --chunks "D:\rag-lab\computer-networking\output\full-book-v4\corpus\chunks.jsonl" `
+  --collection "computer-networking-full-v4" `
+  --knowledge-base-manifest "D:\rag-lab\computer-networking\output\full-book-v4\corpus\corpus-manifest.json" `
+  --port 8000
+```
 
 ## 运行 BM25 检索
 
@@ -709,8 +846,7 @@ evaluate-rerank `
 
 ## 检索 API
 
-`rag_lab.api.create_app` 提供 FastAPI 应用，把 BM25 / Dense / Hybrid
-（RRF）/ Rerank 四种检索器暴露为 HTTP 接口。
+`rag_lab.api.create_app` 同时提供浏览器使用的稳定公开接口与本机调试接口。
 
 ### 安装与启动
 
@@ -725,33 +861,33 @@ serve-api `
 
 启动后访问：
 
-- Swagger UI：`http://127.0.0.1:8000/docs`
-- Health：`GET /health`
-- 检索：`POST /search`
+- MVP 页面：`http://127.0.0.1:8000/`
+- 存活检查：`GET /health/live`
+- 公开检索：`POST /api/v1/search`
+- 本机调试：Swagger UI 和 `POST /search`
 
-### 检索请求
+### 公开检索请求
 
 ```json
 {
-  "query": "什么是端系统",
-  "retriever": "rerank",
-  "top_k": 5
+  "query": "什么是端系统"
 }
 ```
 
-`retriever` 可选 `bm25` / `dense` / `hybrid` / `rerank`（默认 `rerank`）；
-可选的过滤与调参字段包括 `document_ids`、`heading_prefix`、
-`page_start`、`page_end`、`rrf_k`、`per_retriever_k`、`fetch_k` 与
-重排权重。响应为脱敏后的检索结果 JSON（默认不返回 `source_path`，
-如需溯源可传 `"include_source_path": true`）。
+公开接口固定使用 Hybrid + Rerank 与 Top-5，不接受检索器、权重、集合、
+模型、过滤器或路径控制参数。响应仅包含正文及稳定的标题、章节、页码引用。
+`/search` 保留给默认 `127.0.0.1` 的本机调试；以非回环地址启动时会禁用
+`/search`、`/docs` 与 `/openapi.json`。
 
 ```powershell
-curl.exe -X POST http://127.0.0.1:8000/search `
+curl.exe -X POST http://127.0.0.1:8000/api/v1/search `
   -H "Content-Type: application/json" `
-  -d "{\"query\":\"什么是端系统\",\"retriever\":\"rerank\",\"top_k\":5}"
+  -d "{\"query\":\"什么是端系统\"}"
 ```
 
-API 错误语义：参数校验失败返回 422，Ollama / Qdrant 上游失败返回 502。
+公开 API 的错误统一为 `{code, message, request_id}`；请求体上限为 8 KiB。
+公网部署仍需在同源反向代理后提供 TLS、认证/API key 和限流，不能直接把
+Uvicorn 暴露到公网。
 
 ## Agent 工具接入
 
