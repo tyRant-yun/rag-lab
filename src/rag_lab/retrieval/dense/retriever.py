@@ -110,3 +110,14 @@ class DenseRetriever:
             retriever=self.RETRIEVER_NAME,
             index_version=self._index_version,
         )
+
+    def validate_readiness(self) -> int:
+        """Confirm the configured vector collection is readable.
+
+        This intentionally avoids generating an embedding or performing a
+        vector search, so a health probe does not consume model capacity.
+        ``count`` verifies that the Qdrant collection exists and remains
+        dimensionally compatible.
+        """
+
+        return self._store.count()

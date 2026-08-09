@@ -47,6 +47,7 @@ def make_client(
     provider: FakeEmbeddingProvider | None = None,
     store: FakeVectorStore | None = None,
     enable_debug_routes: bool = True,
+    readiness_checker=lambda: None,
 ) -> tuple[TestClient, Path]:
     chunks_path = tmp_path / "chunks.jsonl"
     write_chunks(
@@ -95,6 +96,7 @@ def make_client(
         provider_factory=lambda **_: active_provider,
         store_factory=lambda **_: active_store,
         enable_debug_routes=enable_debug_routes,
+        readiness_checker=readiness_checker,
     )
     return TestClient(app), chunks_path
 
@@ -106,6 +108,29 @@ def test_health(tmp_path: Path):
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_ready_checks_dependencies_without_exposing_errors(
+    tmp_path: Path,
+):
+    ready_client, _ = make_client(tmp_path)
+
+    assert ready_client.get("/health/ready").json() == {
+        "status": "ready"
+    }
+
+    def unavailable() -> None:
+        raise RuntimeError("internal dependency address")
+
+    unavailable_client, _ = make_client(
+        tmp_path,
+        readiness_checker=unavailable,
+    )
+    response = unavailable_client.get("/health/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {"status": "not_ready"}
+    assert "internal dependency" not in response.text
 
 
 def test_search_bm25(tmp_path: Path):
