@@ -127,14 +127,9 @@ src/rag_lab/
 │   ├── app.py
 │   └── cli.py
 ├── tools/
-    ├── search_tool.py
-    ├── retrieval_toolset.py
-    └── cli.py
-└── vector_store/
-    ├── cli.py
-    ├── payload.py
-    ├── provider.py
-    └── qdrant.py
+│   ├── search_tool.py
+│   ├── retrieval_toolset.py
+│   └── cli.py
 ```
 
 `rag_lab.contracts` 存放共享产品契约，导入它不会加载 Normalizer、
@@ -257,7 +252,8 @@ python -m rag_lab.normalization.cli `
   --input-json "path\to\document.docling.json" `
   --source "path\to\source.pdf" `
   --output "path\to\normalized" `
-  --normalization-version "1.1.0"
+  --normalization-version "1.2.0" `
+  --correction-overlay "corrections\computer_networking\chapter_01_v5.json"
 ```
 
 使用安装后的命令：
@@ -267,7 +263,8 @@ normalize-docling `
   --input-json "path\to\document.docling.json" `
   --source "path\to\source.pdf" `
   --output "path\to\normalized" `
-  --normalization-version "1.1.0"
+  --normalization-version "1.2.0" `
+  --correction-overlay "corrections\computer_networking\chapter_01_v5.json"
 ```
 
 Normalizer 产物：
@@ -278,6 +275,12 @@ normalized/
 ├── document.md
 └── normalization-report.json
 ```
+
+`--correction-overlay` 是可选的、版本化 JSON。每条规则都以 Docling
+`source_ref`、页码和前后文本锚定；它只能在生成 block ID 之前合并、替换、
+重排、改分类、排除图中标签或补入经人工核对的公式。`figure_label` 仍留在
+规范化产物中以保留来源，但不会进入检索 chunk；报告会记录
+`correction_summary`，包括已恢复公式数量。
 
 ## 运行 Chunker
 
@@ -334,6 +337,15 @@ audit-artifacts `
 可改为传入 `--docling-markdown`、`--normalization-report`、`--blocks`、
 `--chunking-report` 和 `--chunks` 五个显式路径。审计不会修正产物；内容修复
 必须通过 Normalizer 的代码或版本化 correction overlay 重新生成。
+
+V5 复核时，Docling Markdown 仍是只读的 V4 转换源，因此必须显式提供它：
+
+```powershell
+audit-artifacts `
+  --artifact-root "D:\rag-lab\computer-networking\output\chapter-01\baseline-v5" `
+  --docling-markdown "D:\rag-lab\computer-networking\output\chapter-01\baseline-v4-final\chapter-01-pages-019-061.md" `
+  --output "D:\rag-lab\computer-networking\output\chapter-01\quality-audits\baseline-v5-artifact-quality-report.json"
+```
 
 ## 运行 BM25 检索
 

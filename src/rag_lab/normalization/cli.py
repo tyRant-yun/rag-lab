@@ -8,6 +8,9 @@ from typing import Sequence
 from rag_lab.normalization.normalizer import (
     normalize_docling_document,
 )
+from rag_lab.normalization.corrections import (
+    read_correction_overlay,
+)
 from rag_lab.normalization.serialization import (
     write_normalization_outputs,
 )
@@ -39,6 +42,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--normalization-version",
         default="1.1.0",
     )
+    parser.add_argument(
+        "--correction-overlay",
+        type=Path,
+        help=(
+            "Reviewed source-anchored correction overlay JSON "
+            "to apply before block IDs are generated."
+        ),
+    )
     return parser
 
 
@@ -54,6 +65,12 @@ def main(
     ) as stream:
         document = json.load(stream)
 
+    correction_overlay = (
+        read_correction_overlay(arguments.correction_overlay)
+        if arguments.correction_overlay is not None
+        else None
+    )
+
     result = normalize_docling_document(
         docling_document=document,
         source_path=arguments.source,
@@ -63,6 +80,7 @@ def main(
         artifact_directory=(
             arguments.input_json.resolve().parent
         ),
+        correction_overlay=correction_overlay,
     )
     write_normalization_outputs(
         result=result,
@@ -84,6 +102,11 @@ def main(
     print(
         f"output: {arguments.output.resolve()}"
     )
+    if arguments.correction_overlay is not None:
+        print(
+            "correction overlay: "
+            f"{arguments.correction_overlay.resolve()}"
+        )
 
     return 0
 

@@ -215,6 +215,53 @@ def test_audit_detects_structural_errors_and_formula_markers(
     } <= issue_codes(report)
 
 
+def test_audit_marks_source_formula_as_restored_when_overlay_reports_it(
+    tmp_path: Path,
+):
+    inputs = write_bundle(
+        tmp_path,
+        markdown="<!-- formula-not-decoded -->\n",
+        blocks=[
+            make_block(
+                block_id="equation-a",
+                text="d = L / R",
+                ordinal=1,
+                block_type="equation",
+            )
+        ],
+        chunks=[make_chunk(chunk_id="chunk-a", block_ids=["equation-a"])],
+        normalization_report={
+            "document_id": "document-a",
+            "normalized_block_count": 1,
+            "short_fragment_ratio": 0.0,
+            "source_pages": [1],
+            "pages_requiring_review": [],
+            "correction_overlay": {
+                "formula_restorations": [
+                    {
+                        "correction_id": "restore-equation",
+                        "marker_line": 1,
+                        "marker_page": 1,
+                        "source_ref": "#/texts/4",
+                        "equation_block_id": "equation-a",
+                    }
+                ]
+            },
+        },
+    )
+
+    report = audit_artifacts(inputs=inputs)
+
+    assert report.passed is True
+    restored = [
+        issue
+        for issue in report.issues
+        if issue.issue_code == "FORMULA_NOT_DECODED"
+    ]
+    assert restored[0].severity == "warning"
+    assert "FORMULA_RESTORED_BY_CORRECTION" in issue_codes(report)
+
+
 def test_audit_warns_conservatively_for_review_patterns(
     tmp_path: Path,
 ):

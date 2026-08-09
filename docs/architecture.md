@@ -34,6 +34,10 @@ Docling → Normalizer → NormalizedBlock → Chunker → KnowledgeChunk
   formula recognition.
 - Normalizer owns deterministic text cleanup, source order, block types,
   headings, pages, image links and reviewed correction overlays.
+- A correction overlay is data, not an edited artifact: each operation must
+  name its Docling source references and adjacent text anchors. The normalizer
+  validates those anchors before rebuilding blocks and their IDs; non-indexable
+  figure labels retain provenance while the chunker excludes them from search.
 - Chunker consumes only normalized blocks. It forms retrieval units, preserves
   provenance and enforces size/overlap rules; it does not repair upstream text
   or layout errors.

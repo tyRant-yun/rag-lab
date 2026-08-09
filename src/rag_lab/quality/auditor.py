@@ -255,6 +255,8 @@ class ArtifactQualityAuditor:
         issues = [
             *self._audit_docling_markdown(
                 document_id=document_id,
+                normalization_report=normalization_report,
+                blocks=blocks,
             ),
             *self._audit_normalization(
                 document_id=document_id,
@@ -280,8 +282,21 @@ class ArtifactQualityAuditor:
         self,
         *,
         document_id: str | None,
+        normalization_report: dict[str, Any],
+        blocks: list[dict[str, Any]],
     ) -> list[ArtifactQualityIssue]:
         issues: list[ArtifactQualityIssue] = []
+        overlay = normalization_report.get("correction_overlay")
+        restorations = (
+            overlay.get("formula_restorations", [])
+            if isinstance(overlay, dict)
+            else []
+        )
+        blocks_by_id = {
+            _string(block.get("block_id")): block
+            for block in blocks
+            if _string(block.get("block_id")) is not None
+        }
         lines = self._inputs.docling_markdown.read_text(
             encoding="utf-8"
         ).splitlines()
@@ -294,19 +309,62 @@ class ArtifactQualityAuditor:
                 "Docling Markdown contains "
                 f"formula-not-decoded at line {line_number}"
             )
+            matches = [
+                item
+                for item in restorations
+                if isinstance(item, dict)
+                and _integer(item.get("marker_line")) == line_number
+            ]
+            restored = False
+            if len(matches) == 1:
+                restoration = matches[0]
+                equation = blocks_by_id.get(
+                    _string(restoration.get("equation_block_id"))
+                )
+                restored = bool(
+                    equation is not None
+                    and equation.get("block_type") == "equation"
+                    and _integer(equation.get("page_start"))
+                    == _integer(restoration.get("marker_page"))
+                    and _string(restoration.get("source_ref"))
+                    and _string(restoration.get("correction_id"))
+                )
             issues.append(
                 _issue(
                     issue_code="FORMULA_NOT_DECODED",
-                    severity="error",
+                    severity=(
+                        "warning" if restored else "error"
+                    ),
                     pipeline_stage="conversion",
                     document_id=document_id,
                     evidence=evidence,
                     remediation_hint=(
-                        "Verify the source PDF and restore the equation "
-                        "through a reviewed correction overlay."
+                        "The source marker remains an upstream fact. "
+                        "Verify that a reviewed correction overlay "
+                        "restored the equation."
                     ),
                 )
             )
+            if restored:
+                issues.append(
+                    _issue(
+                        issue_code=(
+                            "FORMULA_RESTORED_BY_CORRECTION"
+                        ),
+                        severity="warning",
+                        pipeline_stage="normalization",
+                        document_id=document_id,
+                        evidence=(
+                            f"{evidence}; normalization report records "
+                            "a reviewed equation restoration"
+                        ),
+                        remediation_hint=(
+                            "Keep the correction overlay source-anchored "
+                            "and re-verify it against the original PDF "
+                            "when the conversion changes."
+                        ),
+                    )
+                )
             issues.append(
                 _issue(
                     issue_code="TEXT_EXPECTS_MISSING_FORMULA",

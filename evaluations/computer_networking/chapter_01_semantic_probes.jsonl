@@ -1,0 +1,6 @@
+{"case_id":"internet-definition","query":"什么是因特网","heading":"1.1 什么是因特网","text":"因特网"}
+{"case_id":"end-systems","query":"什么是端系统","heading":"1.1.1 具体构成描述","text":"端系统"}
+{"case_id":"packet-switching","query":"什么是分组交换网络","heading":"1.3.1 分组交换","text":"分组交换"}
+{"case_id":"tcp-ip","query":"TCP/IP 协议是什么","heading":"1.1.1 具体构成描述","text":"TCP/IP"}
+{"case_id":"internet-standards","query":"RFC 和 IETF 有什么作用","heading":"1.1.1 具体构成描述","text":"IETF"}
+{"case_id":"distributed-application-services","query":"因特网如何为分布式应用提供服务","heading":"1.1.2 服务描述","text":"分布式应用"}

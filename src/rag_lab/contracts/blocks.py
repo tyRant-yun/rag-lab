@@ -16,6 +16,7 @@ class BlockType(str, Enum):
     TABLE = "table"
     CODE = "code"
     EQUATION = "equation"
+    FIGURE_LABEL = "figure_label"
 
 
 class NormalizedBlock(BaseModel):
