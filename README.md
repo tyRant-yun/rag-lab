@@ -347,6 +347,98 @@ audit-artifacts `
   --output "D:\rag-lab\computer-networking\output\chapter-01\quality-audits\baseline-v5-artifact-quality-report.json"
 ```
 
+## 构建全书语料
+
+`configs/computer_networking/networking_top_down_8e.json` 固定了《计算机
+网络：自顶向下方法》第 8 版的原文件 SHA-256、可读文本范围（PDF 第 5–501
+页）和 11 个不重叠 section。封面和折页没有可检索正文；目录会保留在审计
+产物中，但不会写入检索语料，以免重复标题干扰召回。
+
+全书构建使用标准 Docling 后端、关闭 Windows 上不必要的 `torch.compile`，
+启用公式识别，并自动以 UTF-8 模式重启脚本。只有与同页相邻正文可以明确
+归属的独立标点才会归并；其余会保留为非索引来源记录，不会伪造文本关系。
+每个 section 都会依次转换、规范化、分块并运行 `audit-artifacts`；任一
+section 有 error 时不会生成全书 `corpus`。输出目录必须是新版本，脚本不会
+覆盖已经接受过的产物。
+
+```powershell
+python -m pip install -e ".[conversion,api,dev]"
+
+python scripts\ingest_book.py `
+  --manifest "configs\computer_networking\networking_top_down_8e.json" `
+  --source "D:\rag-lab\computer-networking\input\networking-top-down-8e.pdf" `
+  --output "D:\rag-lab\computer-networking\output\full-book-v2"
+```
+
+成功后，检索和索引只使用以下聚合文件，不直接拼接单章 JSONL：
+
+```text
+computer-networking/output/full-book-v2/
+├── sections/<section-id>/
+│   ├── <section-id>.docling.json
+│   ├── normalized/
+│   ├── chunked-max1200-overlap120/
+│   └── artifact-quality-report.json
+└── corpus/
+    ├── chunks.jsonl
+    └── corpus-manifest.json
+```
+
+### 从已有 Docling 转换快速修复公式
+
+如果已经有完整但公式审计失败的转换（本仓库的 `full-book-v1`），不要手改
+Markdown 或 JSONL，也不必重新转换全书。下面的路径只读取原 PDF 的 33 个
+`formula-not-decoded` 来源区域，生成带页码、marker source ref、相邻文本锚点和
+correction ID 的 section-local overlay；随后重新规范化、分块与审计。所有输出目录
+必须是新版本。
+
+```powershell
+python scripts\recognize_formula_markers.py `
+  --manifest "configs\computer_networking\networking_top_down_8e.json" `
+  --source "D:\rag-lab\computer-networking\input\networking-top-down-8e.pdf" `
+  --conversion-root "D:\rag-lab\computer-networking\output\full-book-v1" `
+  --output "D:\rag-lab\computer-networking\output\full-book-v7-formula-native-evidence"
+
+python scripts\build_formula_overlays.py `
+  --manifest "configs\computer_networking\networking_top_down_8e.json" `
+  --replacements "configs\computer_networking\full_book_v1_formula_replacements.json" `
+  --evidence "D:\rag-lab\computer-networking\output\full-book-v7-formula-native-evidence\formula-native-text.json" `
+  --output "D:\rag-lab\computer-networking\output\full-book-v1-formula-overlays"
+
+python scripts\remediate_existing_book.py `
+  --manifest "configs\computer_networking\networking_top_down_8e.json" `
+  --source "D:\rag-lab\computer-networking\input\networking-top-down-8e.pdf" `
+  --existing-docling-root "D:\rag-lab\computer-networking\output\full-book-v1" `
+  --correction-root "D:\rag-lab\computer-networking\output\full-book-v1-formula-overlays" `
+  --output "D:\rag-lab\computer-networking\output\full-book-v4"
+```
+
+`full-book-v4` 是当前已验证的全书产物；`full-book-v2`/`v3` 是保留的中间诊断
+目录，不能作为索引输入。
+
+创建一个新 collection（不要复用 chapter-01 或 MVP smoke collection）：
+
+```powershell
+index-qdrant `
+  --chunks "D:\rag-lab\computer-networking\output\full-book-v4\corpus\chunks.jsonl" `
+  --collection "computer-networking-full-v4" `
+  --url "http://127.0.0.1:6333" `
+  --model "qwen3-embedding:0.6b" `
+  --dimensions 1024 `
+  --batch-size 8 `
+  --json
+```
+
+将公开页面范围说明同步到已验证的全书 corpus：
+
+```powershell
+serve-api `
+  --chunks "D:\rag-lab\computer-networking\output\full-book-v4\corpus\chunks.jsonl" `
+  --collection "computer-networking-full-v4" `
+  --knowledge-base-manifest "D:\rag-lab\computer-networking\output\full-book-v4\corpus\corpus-manifest.json" `
+  --port 8000
+```
+
 ## 运行 BM25 检索
 
 以下命令中的 `path\to\...` 是占位符，必须替换成实际文件路径。

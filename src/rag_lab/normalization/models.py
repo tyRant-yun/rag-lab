@@ -16,6 +16,8 @@ class NormalizationReport:
     removed_furniture_count: int
     reordered_block_count: int
     downgraded_heading_count: int
+    merged_orphan_punctuation_count: int
+    non_indexed_orphan_punctuation_count: int
     short_fragment_ratio: float
     pages_requiring_review: tuple[int, ...]
     correction_summary: dict[str, int] | None = None
@@ -41,6 +43,12 @@ class NormalizationReport:
             ),
             "downgraded_heading_count": (
                 self.downgraded_heading_count
+            ),
+            "merged_orphan_punctuation_count": (
+                self.merged_orphan_punctuation_count
+            ),
+            "non_indexed_orphan_punctuation_count": (
+                self.non_indexed_orphan_punctuation_count
             ),
             "short_fragment_ratio": round(
                 self.short_fragment_ratio,

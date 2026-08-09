@@ -25,6 +25,7 @@ dev = [
 ]
 conversion = [
     "docling>=2,<3",
+    "PyMuPDF>=1.28,<2",
 ]
 api = [
     "fastapi>=0.115,<1",

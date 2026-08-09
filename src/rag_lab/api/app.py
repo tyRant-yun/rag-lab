@@ -24,6 +24,9 @@ from rag_lab.embeddings import (
     OllamaEmbeddingError,
     OllamaEmbeddingProvider,
 )
+from rag_lab.knowledge_base import (
+    PublicKnowledgeBaseInfo,
+)
 from rag_lab.retrieval.factory import (
     RetrieverName,
     build_retrieval_components,
@@ -176,18 +179,6 @@ class PublicSearchResponse(BaseModel):
     results: list[PublicSearchResult]
 
 
-class PublicKnowledgeBaseInfo(BaseModel):
-    """Public product metadata with no retrieval implementation details."""
-
-    model_config = ConfigDict(extra="forbid")
-    title: str
-    coverage: str
-    topics: list[str]
-    capabilities: list[str]
-    guidance: list[str]
-    limitations: list[str]
-
-
 _PUBLIC_KNOWLEDGE_BASE = PublicKnowledgeBaseInfo(
     title="计算机网络基础知识库",
     coverage="《计算机网络：自顶向下方法》第 1 章（第 19–61 页）",
@@ -219,6 +210,7 @@ def create_app(
     provider_factory=OllamaEmbeddingProvider,
     store_factory=build_qdrant_store,
     enable_debug_routes: bool = True,
+    knowledge_base_info: PublicKnowledgeBaseInfo | None = None,
 ) -> FastAPI:
     """Build a retrieval API app over a chunks corpus and Qdrant."""
 
@@ -242,6 +234,9 @@ def create_app(
     )
 
     static_directory = Path(__file__).with_name("static")
+    knowledge_base_metadata = (
+        knowledge_base_info or _PUBLIC_KNOWLEDGE_BASE
+    )
     app = FastAPI(
         title="RAG Lab Retrieval API",
         description=(
@@ -319,7 +314,7 @@ def create_app(
         response_model=PublicKnowledgeBaseInfo,
     )
     def public_knowledge_base() -> PublicKnowledgeBaseInfo:
-        return _PUBLIC_KNOWLEDGE_BASE
+        return knowledge_base_metadata
 
     @app.post("/api/v1/search", response_model=PublicSearchResponse)
     def public_search(payload: PublicSearchRequest) -> PublicSearchResponse:

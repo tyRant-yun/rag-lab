@@ -10,6 +10,9 @@ from rag_lab.api.app import create_app
 from rag_lab.embeddings import (
     OllamaEmbeddingProvider,
 )
+from rag_lab.knowledge_base import (
+    read_public_knowledge_base_info,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -104,6 +107,14 @@ def build_parser() -> argparse.ArgumentParser:
             "May be repeated."
         ),
     )
+    parser.add_argument(
+        "--knowledge-base-manifest",
+        type=Path,
+        help=(
+            "Generated corpus-manifest.json whose public_metadata "
+            "will be shown in the browser UI."
+        ),
+    )
 
     return parser
 
@@ -112,6 +123,16 @@ def main(
     argv: Sequence[str] | None = None,
 ) -> int:
     arguments = build_parser().parse_args(argv)
+    try:
+        knowledge_base_info = (
+            read_public_knowledge_base_info(
+                arguments.knowledge_base_manifest
+            )
+            if arguments.knowledge_base_manifest is not None
+            else None
+        )
+    except (OSError, ValueError) as error:
+        build_parser().error(str(error))
     app = create_app(
         chunks_path=arguments.chunks,
         collection=arguments.collection,
@@ -131,6 +152,7 @@ def main(
         enable_debug_routes=(
             arguments.bind_host in {"127.0.0.1", "localhost", "::1"}
         ),
+        knowledge_base_info=knowledge_base_info,
     )
     uvicorn.run(
         app,

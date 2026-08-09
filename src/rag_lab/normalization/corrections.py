@@ -43,6 +43,7 @@ class Correction:
     find_text: str | None = None
     block_type: str | None = None
     marker_line: int | None = None
+    marker_source_ref: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,6 +159,15 @@ def _parse_correction(
             f"{context}.marker_line must be a positive integer"
         )
 
+    marker_source_ref = raw.get("marker_source_ref")
+    if marker_source_ref is not None and (
+        not isinstance(marker_source_ref, str)
+        or not marker_source_ref.strip()
+    ):
+        raise ValueError(
+            f"{context}.marker_source_ref must be a non-empty string"
+        )
+
     if operation in {
         "merge_text",
         "replace_text",
@@ -178,6 +188,11 @@ def _parse_correction(
     if operation == "insert_equation" and marker_line is None:
         raise ValueError(
             f"{context}.marker_line is required for insert_equation"
+        )
+
+    if operation == "insert_equation" and marker_source_ref is None:
+        raise ValueError(
+            f"{context}.marker_source_ref is required for insert_equation"
         )
 
     return Correction(
@@ -211,6 +226,7 @@ def _parse_correction(
         find_text=find_text,
         block_type=block_type,
         marker_line=marker_line,
+        marker_source_ref=marker_source_ref,
     )
 
 

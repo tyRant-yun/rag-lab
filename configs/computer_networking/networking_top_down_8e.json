@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "book_id": "computer-networking-top-down-8e-zh",
+  "source_sha256": "fef1b562abea48b141fabdee49cb9bcc7c7fecd400b416affd5811543da52592",
+  "source_page_count": 503,
+  "sections": [
+    {"section_id": "front-matter", "title": "译者序、前言与作者简介", "start_page": 5, "end_page": 14},
+    {"section_id": "table-of-contents", "title": "目录", "start_page": 15, "end_page": 18, "include_in_index": false},
+    {"section_id": "chapter-01", "title": "第1章 计算机网络和因特网", "start_page": 19, "end_page": 70},
+    {"section_id": "chapter-02", "title": "第2章 应用层", "start_page": 71, "end_page": 135},
+    {"section_id": "chapter-03", "title": "第3章 运输层", "start_page": 136, "end_page": 215},
+    {"section_id": "chapter-04", "title": "第4章 网络层：数据平面", "start_page": 216, "end_page": 264},
+    {"section_id": "chapter-05", "title": "第5章 网络层：控制平面", "start_page": 265, "end_page": 311},
+    {"section_id": "chapter-06", "title": "第6章 链路层和局域网", "start_page": 312, "end_page": 365},
+    {"section_id": "chapter-07", "title": "第7章 无线网络和移动网络", "start_page": 366, "end_page": 415},
+    {"section_id": "chapter-08", "title": "第8章 计算机网络中的安全", "start_page": 416, "end_page": 471},
+    {"section_id": "references", "title": "参考文献", "start_page": 472, "end_page": 501}
+  ],
+  "public_metadata": {
+    "title": "计算机网络基础知识库",
+    "coverage": "《计算机网络：自顶向下方法》第 8 版的全部可读文本（第 5–501 页）",
+    "topics": ["因特网与协议", "应用与运输层", "网络层与路由", "链路、无线与移动网络", "网络安全"],
+    "capabilities": ["定位概念的原文依据", "按章节和页码复习", "比较相关网络基础主题"],
+    "guidance": ["一次提出一个明确问题", "优先使用教材中的概念词", "结合章节和页码核对原文"],
+    "limitations": ["封面和折页不属于可检索正文", "结果是可核对的检索依据，不代替完整教材阅读"]
+  }
+}

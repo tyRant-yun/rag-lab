@@ -326,7 +326,12 @@ class ArtifactQualityAuditor:
                     and equation.get("block_type") == "equation"
                     and _integer(equation.get("page_start"))
                     == _integer(restoration.get("marker_page"))
-                    and _string(restoration.get("source_ref"))
+                    and _string(
+                        restoration.get("marker_source_ref")
+                    )
+                    and _string(
+                        restoration.get("anchor_source_ref")
+                    )
                     and _string(restoration.get("correction_id"))
                 )
             issues.append(

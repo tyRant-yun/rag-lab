@@ -29,6 +29,19 @@ _NUMBERED_HEADING = re.compile(
 _CHAPTER_MARKER = re.compile(
     r"^第\s*(?P<number>\d+)\s*章$"
 )
+_ORPHAN_PUNCTUATION = frozenset(
+    {
+        "。",
+        "，",
+        "；",
+        "：",
+        "、",
+        ".",
+        ",",
+        ";",
+        ":",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,6 +188,9 @@ def normalize_docling_document(
         docling_document,
         artifact_directory=artifact_directory,
     )
+    formula_marker_pages = _extract_formula_marker_pages(
+        docling_document
+    )
 
     ordered_blocks, reordered_block_count = (
         _restore_single_column_order(raw_blocks)
@@ -198,8 +214,17 @@ def normalize_docling_document(
                 candidates,
                 overlay=correction_overlay,
                 document_id=document_id,
+                formula_marker_pages=(
+                    formula_marker_pages
+                ),
             )
         )
+
+    (
+        candidates,
+        merged_orphan_punctuation_count,
+        non_indexed_orphan_punctuation_count,
+    ) = _handle_orphan_punctuation(candidates)
 
     normalized_blocks = tuple(
         NormalizedBlock(
@@ -288,6 +313,12 @@ def normalize_docling_document(
         downgraded_heading_count=(
             downgraded_heading_count
         ),
+        merged_orphan_punctuation_count=(
+            merged_orphan_punctuation_count
+        ),
+        non_indexed_orphan_punctuation_count=(
+            non_indexed_orphan_punctuation_count
+        ),
         short_fragment_ratio=(
             short_fragment_ratio
         ),
@@ -334,7 +365,10 @@ def _correction_overlay_report(
                 "correction_id": correction.correction_id,
                 "marker_line": correction.marker_line,
                 "marker_page": correction.page,
-                "source_ref": correction.source_refs[0],
+                "marker_source_ref": (
+                    correction.marker_source_ref
+                ),
+                "anchor_source_ref": correction.source_refs[0],
                 "equation_block_id": block_by_source_ref[
                     f"overlay:{correction.correction_id}"
                 ].block_id,
@@ -381,6 +415,7 @@ def _apply_correction_overlay(
     *,
     overlay: CorrectionOverlay,
     document_id: str,
+    formula_marker_pages: dict[str, int],
 ) -> tuple[list[_CandidateBlock], dict[str, int]]:
     """Apply a fixed set of source-anchored corrections before ID creation."""
 
@@ -391,8 +426,13 @@ def _apply_correction_overlay(
 
     corrected = list(candidates)
     summary: dict[str, int] = {}
+    original_insert_context = _insert_anchor_context(candidates)
 
     for correction in overlay.corrections:
+        _validate_formula_marker_reference(
+            correction=correction,
+            formula_marker_pages=formula_marker_pages,
+        )
         locations = _correction_locations(
             corrected,
             correction=correction,
@@ -401,6 +441,9 @@ def _apply_correction_overlay(
             corrected,
             correction=correction,
             locations=locations,
+            original_insert_context=(
+                original_insert_context
+            ),
         )
 
         if correction.operation == "replace_text":
@@ -455,6 +498,48 @@ def _apply_correction_overlay(
     return corrected, summary
 
 
+def _insert_anchor_context(
+    candidates: list[_CandidateBlock],
+) -> dict[str, tuple[str, str]]:
+    return {
+        candidate.source_ref: (
+            candidates[index - 1].text,
+            candidates[index + 1].text,
+        )
+        for index, candidate in enumerate(candidates)
+        if 0 < index < len(candidates) - 1
+    }
+
+
+def _validate_formula_marker_reference(
+    *,
+    correction: Correction,
+    formula_marker_pages: dict[str, int],
+) -> None:
+    if correction.operation != "insert_equation":
+        return
+
+    marker_source_ref = correction.marker_source_ref
+    if marker_source_ref is None:
+        # Direct Python callers that construct the legacy dataclass still
+        # exercise the normalizer tests. JSON overlays must supply the field.
+        return
+
+    marker_page = formula_marker_pages.get(marker_source_ref)
+    if marker_page is None:
+        raise ValueError(
+            f"correction {correction.correction_id} references "
+            "missing formula marker source_ref: "
+            f"{marker_source_ref}"
+        )
+
+    if marker_page != correction.page:
+        raise ValueError(
+            f"correction {correction.correction_id} marker source_ref "
+            "page does not match"
+        )
+
+
 def _correction_locations(
     candidates: list[_CandidateBlock],
     *,
@@ -496,24 +581,36 @@ def _validate_correction_anchors(
     *,
     correction: Correction,
     locations: tuple[int, ...],
+    original_insert_context: dict[str, tuple[str, str]],
 ) -> None:
-    first_location = min(locations)
-    last_location = max(locations)
-
-    if first_location == 0:
-        raise ValueError(
-            f"correction {correction.correction_id} has no "
-            "before-text anchor"
+    if correction.operation == "insert_equation":
+        anchor_context = original_insert_context.get(
+            correction.source_refs[0]
         )
+        if anchor_context is None:
+            raise ValueError(
+                f"correction {correction.correction_id} has no "
+                "original insertion-anchor context"
+            )
+        before, after = anchor_context
+    else:
+        first_location = min(locations)
+        last_location = max(locations)
 
-    if last_location == len(candidates) - 1:
-        raise ValueError(
-            f"correction {correction.correction_id} has no "
-            "after-text anchor"
-        )
+        if first_location == 0:
+            raise ValueError(
+                f"correction {correction.correction_id} has no "
+                "before-text anchor"
+            )
 
-    before = candidates[first_location - 1].text
-    after = candidates[last_location + 1].text
+        if last_location == len(candidates) - 1:
+            raise ValueError(
+                f"correction {correction.correction_id} has no "
+                "after-text anchor"
+            )
+
+        before = candidates[first_location - 1].text
+        after = candidates[last_location + 1].text
     if correction.before_text not in before:
         raise ValueError(
             f"correction {correction.correction_id} before_text "
@@ -1103,6 +1200,46 @@ def _extract_raw_blocks(
     )
 
 
+def _extract_formula_marker_pages(
+    document: dict[str, Any],
+) -> dict[str, int]:
+    texts = document.get("texts")
+    if not isinstance(texts, list):
+        raise ValueError("Docling JSON must contain texts")
+
+    marker_pages: dict[str, int] = {}
+    for index, item in enumerate(texts):
+        if (
+            not isinstance(item, dict)
+            or item.get("label") != "formula"
+            or str(item.get("text") or "").strip()
+        ):
+            continue
+
+        provenance = item.get("prov")
+        if not isinstance(provenance, list) or not provenance:
+            raise ValueError(
+                f"formula marker {index} has no provenance"
+            )
+
+        first = provenance[0]
+        if not isinstance(first, dict) or "page_no" not in first:
+            raise ValueError(
+                f"formula marker {index} has no page"
+            )
+
+        source_ref = str(
+            item.get("self_ref", f"#/texts/{index}")
+        )
+        if source_ref in marker_pages:
+            raise ValueError(
+                f"duplicate formula marker source_ref: {source_ref}"
+            )
+        marker_pages[source_ref] = int(first["page_no"])
+
+    return marker_pages
+
+
 def _restore_single_column_order(
     blocks: list[_RawBlock],
 ) -> tuple[list[_RawBlock], int]:
@@ -1324,6 +1461,60 @@ def _build_candidates(
         downgraded_heading_count,
         tuple(sorted(downgraded_heading_pages)),
     )
+
+
+def _handle_orphan_punctuation(
+    candidates: list[_CandidateBlock],
+) -> tuple[list[_CandidateBlock], int, int]:
+    """Handle punctuation-only body items without discarding source records.
+
+    Docling sometimes emits a sentence-ending mark as its own body item.
+    When the preceding same-page body item does not already end in
+    punctuation, the mark is appended to it. Otherwise, preserving its
+    intended syntactic relationship would require a source-specific reviewed
+    correction. The standalone record is retained as non-indexable instead of
+    being silently deleted or emitted into retrieval chunks.
+    """
+
+    merged = list(candidates)
+    merged_count = 0
+    non_indexed_count = 0
+    body_types = {
+        BlockType.PARAGRAPH,
+        BlockType.LIST_ITEM,
+    }
+
+    for index, candidate in enumerate(merged):
+        if (
+            candidate.block_type not in body_types
+            or candidate.text not in _ORPHAN_PUNCTUATION
+            or index == 0
+        ):
+            continue
+
+        previous = merged[index - 1]
+        if (
+            previous.block_type in body_types
+            and previous.page_start == candidate.page_start
+            and previous.page_end == candidate.page_end
+            and previous.image_path is None
+            and candidate.image_path is None
+            and previous.text[-1] not in _ORPHAN_PUNCTUATION
+        ):
+            merged[index - 1] = replace(
+                previous,
+                text=previous.text + candidate.text,
+            )
+            merged_count += 1
+        else:
+            non_indexed_count += 1
+
+        merged[index] = replace(
+            candidate,
+            block_type=BlockType.FIGURE_LABEL,
+        )
+
+    return merged, merged_count, non_indexed_count
 
 
 def _map_block_type(

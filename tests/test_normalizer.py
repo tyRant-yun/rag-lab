@@ -7,6 +7,7 @@ import pytest
 from rag_lab.contracts.blocks import (
     BlockType,
 )
+from rag_lab.chunking import chunk_normalized_blocks
 from rag_lab.normalization.normalizer import (
     compute_document_id,
     normalize_docling_document,
@@ -15,6 +16,7 @@ from rag_lab.normalization.normalizer import (
 from rag_lab.normalization.corrections import (
     Correction,
     CorrectionOverlay,
+    read_correction_overlay,
 )
 from rag_lab.normalization.serialization import (
     write_normalization_outputs,
@@ -302,6 +304,68 @@ def test_cross_page_paragraphs_remain_separate(
     assert continuation.page_start == 20
     assert continuation.page_end == 20
     assert continuation.ordinal == first.ordinal + 1
+
+
+def test_normalizer_merges_only_adjacent_same_page_orphan_punctuation(
+    tmp_path: Path,
+):
+    source = tmp_path / "source.pdf"
+    source.write_bytes(b"fake-pdf")
+    document = sample_document()
+    texts = document["texts"]
+    assert isinstance(texts, list)
+    texts.extend(
+        [
+            text_item(
+                11,
+                text="正文没有句号",
+                page=20,
+                top=400,
+            ),
+            text_item(
+                12,
+                text="。",
+                page=20,
+                top=370,
+            ),
+            text_item(
+                13,
+                text="；",
+                page=20,
+                top=340,
+            ),
+        ]
+    )
+
+    result = normalize_docling_document(
+        docling_document=document,
+        source_path=source,
+        normalization_version="1.0.0",
+    )
+
+    merged_text = next(
+        block
+        for block in result.blocks
+        if block.text == "正文没有句号。"
+    )
+    trailing_punctuation = next(
+        block
+        for block in result.blocks
+        if block.text == "；"
+    )
+
+    assert merged_text.block_type == BlockType.PARAGRAPH.value
+    assert trailing_punctuation.block_type == (
+        BlockType.FIGURE_LABEL.value
+    )
+    assert result.report.merged_orphan_punctuation_count == 1
+    assert result.report.non_indexed_orphan_punctuation_count == 1
+    assert any(
+        "正文没有句号。" in chunk.content
+        for chunk in chunk_normalized_blocks(
+            blocks=list(result.blocks)
+        ).chunks
+    )
 
 
 def test_inserting_earlier_block_keeps_later_ids(
@@ -597,6 +661,41 @@ def test_correction_overlay_inserts_source_anchored_equation(
         "insert_equation": 1,
         "formula_restoration_count": 1,
     }
+
+
+def test_json_formula_correction_requires_marker_source_ref(
+    tmp_path: Path,
+):
+    overlay_path = tmp_path / "overlay.json"
+    overlay_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "2.0",
+                "document_id": "sha256:test",
+                "corrections": [
+                    {
+                        "id": "missing-marker-source-ref",
+                        "page": 1,
+                        "operation": "insert_equation",
+                        "marker_line": 1,
+                        "source_refs": ["#/texts/0"],
+                        "before_text": "before",
+                        "after_text": "after",
+                        "replacement": "x = y",
+                        "reason": "Exercise the schema guard.",
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="marker_source_ref is required",
+    ):
+        read_correction_overlay(overlay_path)
 
 
 def test_outputs_are_deterministic(

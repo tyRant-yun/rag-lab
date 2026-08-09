@@ -242,7 +242,8 @@ def test_audit_marks_source_formula_as_restored_when_overlay_reports_it(
                         "correction_id": "restore-equation",
                         "marker_line": 1,
                         "marker_page": 1,
-                        "source_ref": "#/texts/4",
+                        "marker_source_ref": "#/texts/5",
+                        "anchor_source_ref": "#/texts/4",
                         "equation_block_id": "equation-a",
                     }
                 ]
