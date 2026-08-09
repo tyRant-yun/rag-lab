@@ -15,9 +15,6 @@ from rag_lab.tools.search_tool import (
 from rag_lab.vector_store.cli import (
     build_qdrant_store,
 )
-from rag_lab.vector_store.cli import (
-    build_qdrant_store,
-)
 
 
 class RetrievalToolset:

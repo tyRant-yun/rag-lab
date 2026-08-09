@@ -15,30 +15,29 @@ RAG Lab 是一个本地知识库项目，用于把源文档转换成可追踪、
 9. BM25 和 Embedding 真实样本基线报告；
 10. Qdrant 向量存储、Dense Retriever 与检索 CLI；
 11. Dense 检索评估 CLI 与真实样本基线报告。
+12. Hybrid RRF 融合检索与词法 Rerank；
+13. Retrieval API；
+14. 可由 Agent 调用的 `search_knowledge` 知识库工具。
 
 README 路线各阶段已全部落地；持久化词法索引、多文档增量索引与
 生产化部署属于后续工作。Embedding 基线只记录统计信息，不保存原始向量。
+路线功能完成不等于语料质量已完成：真实教材产物仍须经过版本化的质量审计
+和可复现修复，不能据此宣称生产就绪。
 
 ## 整体流程
 
 ```text
-源 PDF
-  ↓
-Docling JSON
-  ↓ Normalizer
-NormalizedBlock / blocks.jsonl
-  ↓ Chunker
-KnowledgeChunk / chunks.jsonl
-  ├─ LexicalAnalyzer → BM25Index → BM25Retriever
-  │    ↓
-  │  SearchResult → RetrievalEvaluator → BM25 基线报告
-  │
-  └─ OllamaEmbeddingProvider → QdrantVectorStore → DenseRetriever
-       ↓                                      ↓
-     EmbeddingRunReport         SearchResult → RetrievalEvaluator → Dense 基线报告
+Docling
+  → Normalizer
+  → Chunker
+  → BM25 / Dense
+  → Hybrid
+  → Rerank
+  → API / Agent Tool
 ```
 
 Markdown 文件只用于人工检查，JSONL 文件才是下游机器接口。
+详细的依赖方向与读写边界见 [architecture.md](docs/architecture.md)。
 
 ## 模块职责
 
@@ -53,7 +52,11 @@ Markdown 文件只用于人工检查，JSONL 文件才是下游机器接口。
 - **DenseRetriever**：负责查询向量化、Qdrant 向量检索和 `SearchResult` 转换。
 - **Hybrid Retriever**：使用 Reciprocal Rank Fusion（RRF）融合
   BM25 与 Dense 的排名结果。
-- **Agent**：通过 `search_knowledge` 工具使用知识库。
+- **RerankedRetriever**：在 Hybrid 候选窗口上执行重排；其 `elapsed_ms`
+  覆盖基础检索和重排的完整时长。
+- **Retrieval API / Agent Tool**：复用同一套 `RetrievalComponents` 公开检索
+  入口；API 不生成最终答案，`search_knowledge` 也只是完整 Agent Runtime
+  可调用的知识库工具，不是 LLM Agent 循环。
 
 Chunker 只读取 `blocks.jsonl`，不读取 PDF、Docling JSON 或人工审阅 Markdown。
 
@@ -65,7 +68,8 @@ src/rag_lab/
 │   ├── blocks.py
 │   ├── chunks.py
 │   ├── embeddings.py
-│   └── search.py
+│   ├── search.py
+│   └── vector_store.py
 ├── normalization/
 │   ├── cli.py
 │   ├── models.py
@@ -77,24 +81,26 @@ src/rag_lab/
 │   ├── chunker.py
 │   └── serialization.py
 ├── retrieval/
-│   ├── serialization.py
 │   ├── lexical/
 │   │   └── analyzer.py
 │   ├── bm25/
 │   │   ├── index.py
 │   │   ├── retriever.py
 │   │   └── cli.py
-│   └── dense/
-│       ├── retriever.py
-│       └── cli.py
-│   └── hybrid/
-│       ├── retriever.py
-│       └── cli.py
-│   └── rerank/
-│       ├── protocol.py
-│       ├── lexical.py
-│       ├── retriever.py
-│       └── cli.py
+│   ├── dense/
+│   │   ├── retriever.py
+│   │   └── cli.py
+│   ├── hybrid/
+│   │   ├── retriever.py
+│   │   └── cli.py
+│   ├── rerank/
+│   │   ├── protocol.py
+│   │   ├── lexical.py
+│   │   ├── retriever.py
+│   │   └── cli.py
+│   ├── factory.py
+│   ├── rendering.py
+│   └── serialization.py
 ├── embeddings/
 │   ├── provider.py
 │   ├── ollama.py
@@ -112,13 +118,23 @@ src/rag_lab/
 │   ├── dense_cli.py
 │   ├── hybrid_cli.py
 │   └── rerank_cli.py
+├── quality/
+│   ├── auditor.py
+│   ├── cli.py
+│   ├── models.py
+│   └── serialization.py
 ├── api/
 │   ├── app.py
 │   └── cli.py
-└── tools/
+├── tools/
     ├── search_tool.py
     ├── retrieval_toolset.py
     └── cli.py
+└── vector_store/
+    ├── cli.py
+    ├── payload.py
+    ├── provider.py
+    └── qdrant.py
 ```
 
 `rag_lab.contracts` 存放共享产品契约，导入它不会加载 Normalizer、
