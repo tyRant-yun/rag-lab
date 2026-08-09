@@ -714,7 +714,7 @@ evaluate-rerank `
 ### 安装与启动
 
 ```powershell
-python -m pip install -e ".[api]"
+python -m pip install -e .
 
 serve-api `
   --chunks "path\to\chunks.jsonl" `
@@ -739,8 +739,12 @@ serve-api `
 
 公开接口固定使用 Hybrid + Rerank 与 Top-5，不接受检索器、权重、集合、
 模型、过滤器或路径控制参数。响应仅包含正文及稳定的标题、章节、页码引用。
-`/search` 保留给默认 `127.0.0.1` 的本机调试；以非回环地址启动时会禁用
-`/search`、`/docs` 与 `/openapi.json`。
+`/search`、`/docs` 与 `/openapi.json` 默认关闭。仅本机调试时显式传入
+`--enable-debug-routes`；部署环境无论绑定地址为何都必须保持关闭。
+
+容器运行、环境变量、readiness 与语料/collection 发布门禁见
+[`docs/private-runtime.md`](docs/private-runtime.md)。镜像不包含 PDF、
+`chunks.jsonl` 或 Qdrant 数据；公开发布只能挂载经授权的语料工件。
 
 ```powershell
 curl.exe -X POST http://127.0.0.1:8000/api/v1/search `
