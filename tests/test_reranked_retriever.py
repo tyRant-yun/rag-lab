@@ -110,10 +110,12 @@ def test_fetches_wider_window_then_reranks_to_top_k():
     filters = SearchFilters(
         document_ids=["document-a"],
     )
+    clock_values = iter((10.0, 10.025))
     wrapper = RerankedRetriever(
         retriever=retriever,
         reranker=reranker,
         fetch_k=20,
+        clock=lambda: next(clock_values),
     )
 
     result = wrapper.search(
@@ -122,7 +124,11 @@ def test_fetches_wider_window_then_reranks_to_top_k():
         filters=filters,
     )
 
-    assert result is reranked_result
+    assert result is not reranked_result
+    assert result.elapsed_ms == pytest.approx(25.0)
+    assert result.candidate_count == reranked_result.candidate_count
+    assert result.hits == reranked_result.hits
+    assert result.index_version == reranked_result.index_version
     assert retriever.calls == [
         ("query", 20, filters)
     ]
@@ -160,3 +166,24 @@ def test_validation_errors():
             reranker=reranker,
             fetch_k=True,
         )
+
+    with pytest.raises(TypeError, match="clock must be callable"):
+        RerankedRetriever(
+            retriever=retriever,
+            reranker=reranker,
+            clock=1,  # type: ignore[arg-type]
+        )
+
+
+def test_elapsed_ms_cannot_be_negative_when_clock_moves_backwards():
+    result = make_result()
+    clock_values = iter((5.0, 4.0))
+    wrapper = RerankedRetriever(
+        retriever=FakeRetriever(result),
+        reranker=FakeReranker(result),
+        clock=lambda: next(clock_values),
+    )
+
+    reranked = wrapper.search("query")
+
+    assert reranked.elapsed_ms == 0.0

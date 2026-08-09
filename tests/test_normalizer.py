@@ -8,8 +8,13 @@ from rag_lab.contracts.blocks import (
     BlockType,
 )
 from rag_lab.normalization.normalizer import (
+    compute_document_id,
     normalize_docling_document,
     normalize_text,
+)
+from rag_lab.normalization.corrections import (
+    Correction,
+    CorrectionOverlay,
 )
 from rag_lab.normalization.serialization import (
     write_normalization_outputs,
@@ -547,6 +552,51 @@ def test_multiple_chapters_reset_heading_path(
         result.report.downgraded_heading_count
         == 0
     )
+
+
+def test_correction_overlay_inserts_source_anchored_equation(
+    tmp_path: Path,
+):
+    source = tmp_path / "source.pdf"
+    source.write_bytes(b"fake-pdf")
+    overlay = CorrectionOverlay(
+        document_id=compute_document_id(source),
+        schema_version="1.0",
+        sha256="overlay-digest",
+        source_path="overlay.json",
+        corrections=(
+            Correction(
+                correction_id="restore-equation",
+                page=20,
+                operation="insert_equation",
+                source_refs=("#/texts/4",),
+                before_text="1.1 什么是因特网",
+                after_text="第二段。",
+                replacement="d = L / R",
+                reason="Exercise the reviewed correction path.",
+                marker_line=1,
+            ),
+        ),
+    )
+
+    result = normalize_docling_document(
+        docling_document=sample_document(),
+        source_path=source,
+        normalization_version="1.0.0",
+        correction_overlay=overlay,
+    )
+
+    equation = next(
+        block
+        for block in result.blocks
+        if block.text == "d = L / R"
+    )
+    assert equation.block_type == BlockType.EQUATION.value
+    assert equation.page_start == 20
+    assert result.report.correction_summary == {
+        "insert_equation": 1,
+        "formula_restoration_count": 1,
+    }
 
 
 def test_outputs_are_deterministic(

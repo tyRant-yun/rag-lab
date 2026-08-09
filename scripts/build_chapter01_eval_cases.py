@@ -1,9 +1,11 @@
-"""Build the chapter-01 v4 retrieval evaluation case set.
+"""Build reproducible chapter-01 retrieval evaluation case sets.
 
 Each section heading in the normalized baseline becomes one probe: the query
 is the heading text and the relevant chunks are every chunk whose
 heading_path contains that exact heading.  Existing smoke cases are merged
-when their relevant chunk ids exist in the target corpus.
+when their relevant chunk ids exist in the target corpus.  A section template
+keeps stable case IDs across artifact versions, while semantic probes derive
+new relevant IDs from headings and source phrases in the target corpus.
 """
 
 from argparse import ArgumentParser
@@ -33,6 +35,22 @@ def main() -> int:
     parser.add_argument("--blocks", type=Path, required=True)
     parser.add_argument("--chunks", type=Path, required=True)
     parser.add_argument("--smoke-cases", type=Path)
+    parser.add_argument(
+        "--section-template",
+        type=Path,
+        help=(
+            "Existing JSONL whose section case IDs and queries should be "
+            "re-bound to this corpus."
+        ),
+    )
+    parser.add_argument(
+        "--semantic-probes",
+        type=Path,
+        help=(
+            "JSONL with case_id, query, heading, and optional text fields "
+            "used to derive target-corpus relevance labels."
+        ),
+    )
     parser.add_argument("--output", type=Path, required=True)
     arguments = parser.parse_args()
 
@@ -45,12 +63,41 @@ def main() -> int:
         for block in blocks
         if block.get("block_type") == "section_heading"
     ]
+    heading_texts = {
+        (block.get("text") or "").strip()
+        for block in headings
+    }
+
+    if arguments.section_template:
+        section_specs = [
+            {
+                "case_id": case["case_id"],
+                "query": case["query"],
+            }
+            for case in _read_jsonl(arguments.section_template)
+            if str(case.get("case_id", "")).startswith("section-")
+        ]
+    else:
+        section_specs = [
+            {
+                "case_id": (
+                    f"section-{block.get('ordinal', 0):03d}-"
+                    f"{_slug((block.get('text') or '').strip())}"
+                ),
+                "query": (block.get("text") or "").strip(),
+            }
+            for block in headings
+            if (block.get("text") or "").strip()
+        ]
 
     cases: list[dict] = []
-    for block in headings:
-        heading = (block.get("text") or "").strip()
-        if not heading:
-            continue
+    for spec in section_specs:
+        heading = spec["query"]
+        if heading not in heading_texts:
+            raise SystemExit(
+                "section template heading missing from target corpus: "
+                f"{heading}"
+            )
         relevant = [
             chunk["chunk_id"]
             for chunk in sorted(
@@ -58,18 +105,50 @@ def main() -> int:
             )
             if heading in chunk.get("heading_path", [])
         ]
-        case_id = (
-            f"section-{block.get('ordinal', 0):03d}-"
-            f"{_slug(heading)}"
-        )
         cases.append(
             {
-                "case_id": case_id,
+                "case_id": spec["case_id"],
                 "query": heading,
                 "relevant_chunk_ids": relevant,
                 "filters": None,
             }
         )
+
+    semantic_merged = 0
+    if arguments.semantic_probes:
+        for probe in _read_jsonl(arguments.semantic_probes):
+            heading = probe.get("heading")
+            if not isinstance(heading, str) or not heading.strip():
+                raise SystemExit(
+                    "semantic probe requires a non-empty heading"
+                )
+            text = probe.get("text")
+            if text is not None and not isinstance(text, str):
+                raise SystemExit(
+                    "semantic probe text must be a string when provided"
+                )
+            relevant = [
+                chunk["chunk_id"]
+                for chunk in sorted(
+                    chunks, key=lambda item: item.get("ordinal", 0)
+                )
+                if heading in chunk.get("heading_path", [])
+                and (text is None or text in chunk.get("content", ""))
+            ]
+            if not relevant:
+                raise SystemExit(
+                    "semantic probe found no relevant chunks: "
+                    f"{probe.get('case_id')}"
+                )
+            cases.append(
+                {
+                    "case_id": probe["case_id"],
+                    "query": probe["query"],
+                    "relevant_chunk_ids": relevant,
+                    "filters": probe.get("filters"),
+                }
+            )
+            semantic_merged += 1
 
     merged_smoke = 0
     if arguments.smoke_cases and arguments.smoke_cases.is_file():
@@ -134,7 +213,8 @@ def main() -> int:
 
     print(f"eval cases written: {arguments.output}")
     print(
-        f"section cases: {len(headings)}  "
+        f"section cases: {len(section_specs)}  "
+        f"semantic merged: {semantic_merged}  "
         f"smoke merged: {merged_smoke}  total: {len(cases)}"
     )
     return 0

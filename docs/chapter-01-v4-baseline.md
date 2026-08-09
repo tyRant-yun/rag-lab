@@ -153,7 +153,6 @@ evaluate-dense `
   --dataset-id "chapter-01-v4" `
   --collection "computer-networking-chapter-01-v4" `
   --top-k 5 --json
-```
 
 # 混合评估
 evaluate-hybrid `
@@ -162,7 +161,6 @@ evaluate-hybrid `
   --dataset-id "chapter-01-v4" `
   --collection "computer-networking-chapter-01-v4" `
   --top-k 5 --json
-```
 
 # 重排评估
 evaluate-rerank `

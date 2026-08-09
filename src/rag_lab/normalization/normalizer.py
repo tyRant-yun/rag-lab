@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +13,10 @@ from rag_lab.contracts.blocks import (
 from rag_lab.normalization.models import (
     NormalizationReport,
     NormalizationResult,
+)
+from rag_lab.normalization.corrections import (
+    Correction,
+    CorrectionOverlay,
 )
 
 
@@ -143,6 +147,7 @@ def normalize_docling_document(
     source_path: Path,
     normalization_version: str,
     artifact_directory: Path | None = None,
+    correction_overlay: CorrectionOverlay | None = None,
 ) -> NormalizationResult:
     resolved_source = source_path.resolve()
 
@@ -185,6 +190,16 @@ def normalize_docling_document(
             chapter_markers=chapter_markers,
         )
     )
+
+    correction_summary: dict[str, int] | None = None
+    if correction_overlay is not None:
+        candidates, correction_summary = (
+            _apply_correction_overlay(
+                candidates,
+                overlay=correction_overlay,
+                document_id=document_id,
+            )
+        )
 
     normalized_blocks = tuple(
         NormalizedBlock(
@@ -279,12 +294,55 @@ def normalize_docling_document(
         pages_requiring_review=(
             pages_requiring_review
         ),
+        correction_summary=correction_summary,
+        correction_overlay=(
+            _correction_overlay_report(
+                overlay=correction_overlay,
+                candidates=candidates,
+                blocks=normalized_blocks,
+            )
+            if correction_overlay is not None
+            else None
+        ),
     )
 
     return NormalizationResult(
         blocks=normalized_blocks,
         report=report,
     )
+
+
+def _correction_overlay_report(
+    *,
+    overlay: CorrectionOverlay,
+    candidates: list[_CandidateBlock],
+    blocks: tuple[NormalizedBlock, ...],
+) -> dict[str, object]:
+    block_by_source_ref = {
+        candidate.source_ref: block
+        for candidate, block in zip(candidates, blocks)
+    }
+    return {
+        "schema_version": overlay.schema_version,
+        "sha256": overlay.sha256,
+        "source_path": overlay.source_path,
+        "applied_correction_ids": [
+            correction.correction_id for correction in overlay.corrections
+        ],
+        "formula_restorations": [
+            {
+                "correction_id": correction.correction_id,
+                "marker_line": correction.marker_line,
+                "marker_page": correction.page,
+                "source_ref": correction.source_refs[0],
+                "equation_block_id": block_by_source_ref[
+                    f"overlay:{correction.correction_id}"
+                ].block_id,
+            }
+            for correction in overlay.corrections
+            if correction.operation == "insert_equation"
+        ],
+    }
 
 
 def _compute_block_id(
@@ -316,6 +374,345 @@ def _compute_block_id(
         digest.update(encoded)
 
     return f"sha256:{digest.hexdigest()}"
+
+
+def _apply_correction_overlay(
+    candidates: list[_CandidateBlock],
+    *,
+    overlay: CorrectionOverlay,
+    document_id: str,
+) -> tuple[list[_CandidateBlock], dict[str, int]]:
+    """Apply a fixed set of source-anchored corrections before ID creation."""
+
+    if overlay.document_id != document_id:
+        raise ValueError(
+            "correction overlay document_id does not match source"
+        )
+
+    corrected = list(candidates)
+    summary: dict[str, int] = {}
+
+    for correction in overlay.corrections:
+        locations = _correction_locations(
+            corrected,
+            correction=correction,
+        )
+        _validate_correction_anchors(
+            corrected,
+            correction=correction,
+            locations=locations,
+        )
+
+        if correction.operation == "replace_text":
+            _replace_correction_text(
+                corrected,
+                correction=correction,
+                location=locations[0],
+            )
+        elif correction.operation == "merge_text":
+            corrected = _merge_correction_text(
+                corrected,
+                correction=correction,
+                locations=locations,
+            )
+        elif correction.operation == "reorder_blocks":
+            _reorder_correction_blocks(
+                corrected,
+                correction=correction,
+                locations=locations,
+            )
+        elif correction.operation == "reclassify_block":
+            _reclassify_correction_block(
+                corrected,
+                correction=correction,
+                location=locations[0],
+            )
+        elif correction.operation == "exclude_from_index":
+            _exclude_correction_block(
+                corrected,
+                location=locations[0],
+            )
+        elif correction.operation == "insert_equation":
+            corrected = _insert_equation_correction(
+                corrected,
+                correction=correction,
+                location=locations[0],
+            )
+        else:
+            raise AssertionError(
+                f"unsupported correction operation: "
+                f"{correction.operation}"
+            )
+
+        summary[correction.operation] = (
+            summary.get(correction.operation, 0) + 1
+        )
+
+    summary["formula_restoration_count"] = summary.get(
+        "insert_equation",
+        0,
+    )
+    return corrected, summary
+
+
+def _correction_locations(
+    candidates: list[_CandidateBlock],
+    *,
+    correction: Correction,
+) -> tuple[int, ...]:
+    by_source_ref = {
+        candidate.source_ref: index
+        for index, candidate in enumerate(candidates)
+    }
+
+    try:
+        locations = tuple(
+            by_source_ref[source_ref]
+            for source_ref in correction.source_refs
+        )
+    except KeyError as error:
+        raise ValueError(
+            f"correction {correction.correction_id} references "
+            f"missing source_ref: {error.args[0]}"
+        ) from error
+
+    if (
+        correction.operation != "insert_equation"
+        and any(
+            candidates[location].page_start != correction.page
+            for location in locations
+        )
+    ):
+        raise ValueError(
+            f"correction {correction.correction_id} page does not "
+            "match its source_ref"
+        )
+
+    return locations
+
+
+def _validate_correction_anchors(
+    candidates: list[_CandidateBlock],
+    *,
+    correction: Correction,
+    locations: tuple[int, ...],
+) -> None:
+    first_location = min(locations)
+    last_location = max(locations)
+
+    if first_location == 0:
+        raise ValueError(
+            f"correction {correction.correction_id} has no "
+            "before-text anchor"
+        )
+
+    if last_location == len(candidates) - 1:
+        raise ValueError(
+            f"correction {correction.correction_id} has no "
+            "after-text anchor"
+        )
+
+    before = candidates[first_location - 1].text
+    after = candidates[last_location + 1].text
+    if correction.before_text not in before:
+        raise ValueError(
+            f"correction {correction.correction_id} before_text "
+            "anchor does not match"
+        )
+
+    if correction.after_text not in after:
+        raise ValueError(
+            f"correction {correction.correction_id} after_text "
+            "anchor does not match"
+        )
+
+def _replace_correction_text(
+    candidates: list[_CandidateBlock],
+    *,
+    correction: Correction,
+    location: int,
+) -> None:
+    replacement = correction.replacement
+    if replacement is None:
+        raise AssertionError("replace_text requires replacement")
+
+    candidate = candidates[location]
+    if correction.find_text is None:
+        corrected_text = replacement
+    else:
+        if candidate.text.count(correction.find_text) != 1:
+            raise ValueError(
+                f"correction {correction.correction_id} find_text "
+                "must occur exactly once"
+            )
+        corrected_text = candidate.text.replace(
+            correction.find_text,
+            replacement,
+        )
+
+    candidates[location] = replace(
+        candidate,
+        text=corrected_text,
+    )
+
+
+def _merge_correction_text(
+    candidates: list[_CandidateBlock],
+    *,
+    correction: Correction,
+    locations: tuple[int, ...],
+) -> list[_CandidateBlock]:
+    replacement = correction.replacement
+    if replacement is None:
+        raise AssertionError("merge_text requires replacement")
+
+    ordered_locations = sorted(locations)
+    selected = [
+        candidates[location]
+        for location in ordered_locations
+    ]
+    first = selected[0]
+    block_type = (
+        BlockType(correction.block_type)
+        if correction.block_type is not None
+        else first.block_type
+    )
+    merged = _CandidateBlock(
+        source_ref=(
+            "overlay:"
+            f"{correction.correction_id}"
+        ),
+        text=replacement,
+        block_type=block_type,
+        heading_path=first.heading_path,
+        page_start=min(
+            candidate.page_start
+            for candidate in selected
+        ),
+        page_end=max(
+            candidate.page_end
+            for candidate in selected
+        ),
+        image_path=None,
+    )
+    selected_locations = set(ordered_locations)
+    insertion_location = ordered_locations[0]
+    merged_candidates: list[_CandidateBlock] = []
+
+    for location, candidate in enumerate(candidates):
+        if location == insertion_location:
+            merged_candidates.append(merged)
+
+        if location not in selected_locations:
+            merged_candidates.append(candidate)
+
+    return merged_candidates
+
+
+def _reorder_correction_blocks(
+    candidates: list[_CandidateBlock],
+    *,
+    correction: Correction,
+    locations: tuple[int, ...],
+) -> None:
+    selected = [
+        candidates[location]
+        for location in locations
+    ]
+    for location, candidate in zip(
+        sorted(locations),
+        selected,
+    ):
+        candidates[location] = candidate
+
+
+def _reclassify_correction_block(
+    candidates: list[_CandidateBlock],
+    *,
+    correction: Correction,
+    location: int,
+) -> None:
+    if correction.block_type is None:
+        raise AssertionError(
+            "reclassify_block requires block_type"
+        )
+
+    block_type = BlockType(correction.block_type)
+    candidate = candidates[location]
+    if block_type != BlockType.SECTION_HEADING:
+        candidates[location] = replace(
+            candidate,
+            block_type=block_type,
+        )
+        return
+
+    old_heading_path = candidate.heading_path
+    new_heading_path = old_heading_path + (
+        candidate.text,
+    )
+    candidates[location] = replace(
+        candidate,
+        block_type=block_type,
+        heading_path=new_heading_path,
+    )
+
+    for index in range(location + 1, len(candidates)):
+        following = candidates[index]
+        if following.heading_path[: len(old_heading_path)] != (
+            old_heading_path
+        ):
+            continue
+
+        candidates[index] = replace(
+            following,
+            heading_path=(
+                new_heading_path
+                + following.heading_path[
+                    len(old_heading_path) :
+                ]
+            ),
+        )
+
+
+def _exclude_correction_block(
+    candidates: list[_CandidateBlock],
+    *,
+    location: int,
+) -> None:
+    candidates[location] = replace(
+        candidates[location],
+        block_type=BlockType.FIGURE_LABEL,
+    )
+
+
+def _insert_equation_correction(
+    candidates: list[_CandidateBlock],
+    *,
+    correction: Correction,
+    location: int,
+) -> list[_CandidateBlock]:
+    replacement = correction.replacement
+    if replacement is None:
+        raise AssertionError("insert_equation requires replacement")
+
+    anchor = candidates[location]
+    equation = _CandidateBlock(
+        source_ref=(
+            "overlay:"
+            f"{correction.correction_id}"
+        ),
+        text=replacement,
+        block_type=BlockType.EQUATION,
+        heading_path=anchor.heading_path,
+        page_start=correction.page,
+        page_end=correction.page,
+        image_path=None,
+    )
+    return [
+        *candidates[: location + 1],
+        equation,
+        *candidates[location + 1 :],
+    ]
 
 
 def _extract_caption_image_paths(
@@ -789,10 +1186,14 @@ def _build_candidates(
             )
         )
 
+    active_chapter_marker: str | None = None
     for _, event in sorted(events):
         if isinstance(event, _ChapterMarker):
+            if event.text == active_chapter_marker:
+                continue
             pending_chapter_marker = event.text
             heading_stack = []
+            active_chapter_marker = event.text
             continue
 
         block = event
@@ -897,7 +1298,7 @@ def _build_candidates(
 
         if not heading_stack:
             fallback_title = (
-                chapter_marker or "Document"
+                pending_chapter_marker or "Document"
             )
             heading_stack = [fallback_title]
 
